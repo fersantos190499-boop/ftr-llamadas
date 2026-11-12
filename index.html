@@ -85,6 +85,28 @@ textarea{min-height:60px}
 .seg button.on{background:#fff;color:var(--azul);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .empty{text-align:center;color:var(--suave);padding:18px}
 .counter{font-size:30px;font-weight:700;color:var(--naranja)}
+.wa-box{margin-bottom:10px}
+.wa-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.wa-b{padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.2}
+.wa-b small{font-weight:500;opacity:.85;font-size:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.chip{border:1px solid var(--borde);background:#fff;border-radius:99px;padding:6px 12px;font-weight:600;font-size:13px;cursor:pointer;color:var(--texto);display:flex;align-items:center;gap:6px}
+.chip.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.rc{display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
+.rc a{color:var(--azul2);font-weight:500;text-decoration:none}
+.rc select{width:auto;padding:4px 6px;font-size:12px;border-radius:8px}
+.funnel{width:100%;border-collapse:collapse;font-size:14px}
+@media(max-width:460px){.funnel{font-size:12.5px}.funnel th,.funnel td{padding:7px 5px}}
+.funnel th{background:#3d5a80;color:#fff;padding:8px;text-align:right;font-weight:600}
+.funnel th:first-child,.funnel td:first-child{text-align:left}
+.funnel td{padding:8px;border-top:1px solid var(--borde);text-align:right;font-weight:600}
+.funnel tr.pct td{color:var(--naranja)}
+.funnel td:first-child{font-weight:400}
+.chartbox{background:#fff;border:1px solid var(--borde);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.chartbox h3{margin:0 0 2px;font-size:15px;color:var(--azul)}
+.chartbox .cw{position:relative;height:230px;margin-top:8px}
+.kpi .d{font-size:13px;font-weight:600}.up{color:var(--verde)}.down{color:var(--rojo)}
 </style>
 </head>
 <body>
@@ -168,6 +190,10 @@ const pctNum = (a,b) => b ? Math.round(a/b*1000)/10 : 0;
 const fmtF = d => d ? new Date(d+"T12:00:00").toLocaleDateString("es-ES",{weekday:"short",day:"numeric",month:"short"}) : "sin fecha";
 const NOMBRE_MES = m => { const [y,mm]=m.split("-"); return new Date(+y,+mm-1,1).toLocaleDateString("es-ES",{month:"long",year:"numeric"}); };
 const lmActivos = () => S.lms.filter(x=>x.activo).map(x=>x.nombre);
+const tipoWA = w => w.tipo || "inbound";
+const CATS = ["No cerrado","No show","Inbound sin llamada","Frío","Descartado"];
+const CAT_INFO = {"No cerrado":{c:"#c0392b",d:"Tuvieron llamada y no cerraron"},"No show":{c:"#b7791f",d:"Reservaron y no se presentaron o cancelaron"},
+  "Inbound sin llamada":{c:"#2a78d6",d:"Mostraron interés y no llegaron a llamada"},"Frío":{c:"#6b7785",d:"Lead magnet o bienvenida sin llamada"},"Descartado":{c:"#444",d:"No cualifican"}};
 function toast(msg, undo){
   document.querySelectorAll(".toast").forEach(t=>t.remove());
   const t=document.createElement("div"); t.className="toast"; t.innerHTML=esc(msg);
@@ -196,9 +222,11 @@ function mesesDelPeriodo(){
 /* =================== MÉTRICAS =================== */
 function calcular(meses){
   const inP = d => d && meses.includes(mesDe(d));
-  const tot = {ig_inbound:0, ig_outbound:0, ig_lm:0, recaudado_r:0, contratado_r:0, prop_inbound:0, prop_outbound:0, prop_lm:0};
+  const tot = {ig_inbound:0, ig_outbound:0, ig_lm:0, recaudado_r:0, contratado_r:0, prop_inbound:0, prop_outbound:0, prop_lm:0, enl_inbound:0, enl_outbound:0, enl_lm:0};
   S.meses.filter(m=>meses.includes(m.mes)).forEach(m=>Object.keys(tot).forEach(k=>tot[k]+=(+m[k]||0)));
-  const wa = S.wa.filter(w=>inP(w.fecha));
+  const waAll = S.wa.filter(w=>inP(w.fecha));
+  const wa = waAll.filter(w=>tipoWA(w)==="inbound");
+  const waProp = waAll.filter(w=>tipoWA(w)==="propuesta").length, waEnl = waAll.filter(w=>tipoWA(w)==="enlace").length;
   const ag = S.llamadas.filter(c=>inP(c.fecha_agendada));
   const agO = o => ag.filter(c=>c.origen===o).length;
   // Llamadas cuya videollamada cae en el periodo (aunque se agendaran el mes anterior)
@@ -215,13 +243,16 @@ function calcular(meses){
     pendientes: delPeriodo.filter(c=>c.estado==="Agendada").length,
     cerradasPeriodo: delPeriodo.filter(c=>c.estado==="Cerrada").length,
     llamadasPeriodo: delPeriodo.length,
-    recaudado: cerradas.reduce((s,c)=>s+(+c.recaudado||0),0),
-    contratado: cerradas.reduce((s,c)=>s+(+c.contratado||0),0),
+    recaudado: Math.round(cerradas.reduce((s,c)=>s+(+c.recaudado||0),0)*100)/100,
+    contratado: Math.round(cerradas.reduce((s,c)=>s+(+c.contratado||0),0)*100)/100,
     recaudadoR: tot.recaudado_r, contratadoR: tot.contratado_r,
-    propIn: tot.prop_inbound, propOut: tot.prop_outbound, propLM: tot.prop_lm,
+    propIn: tot.prop_inbound + waProp, propInIG: tot.prop_inbound, propInWA: waProp, propOut: tot.prop_outbound, propLM: tot.prop_lm,
+    enlIn: tot.enl_inbound + waEnl, enlInIG: tot.enl_inbound, enlInWA: waEnl, enlOut: tot.enl_outbound, enlLM: tot.enl_lm,
     wa, ag, cerradasList: cerradas
   };
   r.propuestas = r.propIn + r.propOut + r.propLM;
+  r.enlaces = r.enlIn + r.enlOut + r.enlLM;
+  r.ticket = r.cerradas ? Math.round(r.contratado/r.cerradas*100)/100 : 0;
   r.leads = r.inbound + r.propOut + r.propLM;
   r.totalRecaudado = r.recaudado + r.recaudadoR;
   r.totalContratado = r.contratado + r.contratadoR;
@@ -231,13 +262,13 @@ function calcular(meses){
 /* =================== RENDER =================== */
 function render(){
   if(!S.user && !DEMO){ renderLogin(); return; }
-  const tabs=[["hoy","Hoy"],["llamadas","Llamadas"],["resumen","Resumen"],["historico","Histórico"],["ajustes","Ajustes"]];
+  const tabs=[["hoy","Hoy"],["llamadas","Llamadas"],["resumen","Resumen"],["evolucion","Evolución"],["historico","Recontactar"],["ajustes","Ajustes"]];
   $("#app").innerHTML = `
   <header><h1>Fuel to Run · <span>Registro de llamadas</span>${DEMO?' <small style="opacity:.7">(DEMO)</small>':''}</h1>
     <nav>${tabs.map(([k,n])=>`<button class="${S.tab===k?"on":""}" data-tab="${k}">${n}</button>`).join("")}</nav></header>
   <main id="main"></main>`;
   document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; render();});
-  ({hoy:renderHoy, llamadas:renderLlamadas, resumen:renderResumen, historico:renderHistorico, ajustes:renderAjustes})[S.tab]();
+  ({hoy:renderHoy, llamadas:renderLlamadas, resumen:renderResumen, evolucion:renderEvolucion, historico:renderHistorico, ajustes:renderAjustes})[S.tab]();
 }
 
 function renderLogin(){
@@ -296,7 +327,10 @@ async function quickEstado(c, estado){
 
 function renderHoy(){
   const t=hoy(), m=mesActual();
-  const waHoy=S.wa.filter(w=>w.fecha===t).length, waMes=S.wa.filter(w=>mesDe(w.fecha)===m).length;
+  const cnt=(tp,f)=>S.wa.filter(w=>tipoWA(w)===tp && f(w)).length;
+  const waHoy=cnt("inbound",w=>w.fecha===t), waMes=cnt("inbound",w=>mesDe(w.fecha)===m);
+  const prHoy=cnt("propuesta",w=>w.fecha===t), prMes=cnt("propuesta",w=>mesDe(w.fecha)===m);
+  const enHoy=cnt("enlace",w=>w.fecha===t), enMes=cnt("enlace",w=>mesDe(w.fecha)===m);
   const pend=S.llamadas.filter(c=>(c.estado==="Agendada" && (!c.fecha_llamada || c.fecha_llamada<=t)) || c.estado==="Realizada")
     .sort((a,b)=>(a.fecha_llamada||"").localeCompare(b.fecha_llamada||""));
   const prox=S.llamadas.filter(c=>c.estado==="Agendada" && c.fecha_llamada && c.fecha_llamada>t).sort((a,b)=>a.fecha_llamada.localeCompare(b.fecha_llamada));
@@ -304,12 +338,14 @@ function renderHoy(){
   const agMes=S.llamadas.filter(c=>mesDe(c.fecha_agendada)===m).length;
   const cerrMes=S.llamadas.filter(c=>c.estado==="Cerrada" && mesDe(c.fecha_cierre||c.fecha_llamada)===m).length;
   $("#main").innerHTML = `
-    <div class="grid2">
-      <button class="btn big nar" id="bWA">+1 Inbound WhatsApp</button>
-      <button class="btn big" id="bNew">+ Llamada agendada</button>
-    </div>
-    <div class="grid3" style="margin-top:10px">
-      <div class="kpi"><div class="t">Inbound WA hoy / mes</div><div class="v">${waHoy} <span class="muted">/ ${waMes}</span></div></div>
+    <div class="card wa-box"><div class="row" style="justify-content:space-between"><b>WhatsApp</b><span class="muted">hoy / mes</span></div>
+      <div class="wa-grid" style="margin-top:8px">
+        <button class="btn nar wa-b" id="bWA">+1 Inbound<small>${waHoy} / ${waMes}</small></button>
+        <button class="btn sec wa-b" id="bWAprop">+1 Propuesta<small>${prHoy} / ${prMes}</small></button>
+        <button class="btn sec wa-b" id="bWAenl">+1 Enlace<small>${enHoy} / ${enMes}</small></button>
+      </div></div>
+    <button class="btn big" id="bNew">+ Llamada agendada</button>
+    <div class="grid2" style="margin-top:10px">
       <div class="kpi"><div class="t">Agendadas este mes</div><div class="v">${agMes}</div></div>
       <div class="kpi"><div class="t">Cerradas este mes</div><div class="v">${cerrMes}</div></div>
     </div>
@@ -319,6 +355,7 @@ function renderHoy(){
     <h2>Próximas llamadas (${prox.length})</h2>
     <div id="prox">${prox.length?prox.map(c=>callCard(c,false)).join(""):'<div class="empty">No hay llamadas programadas</div>'}</div>`;
   $("#bWA").onclick=modalWA; $("#bNew").onclick=()=>modalLlamada();
+  $("#bWAprop").onclick=()=>sumarWA("propuesta"); $("#bWAenl").onclick=()=>sumarWA("enlace");
   if($("#goRev")) $("#goRev").onclick=e=>{e.preventDefault(); S.tab="llamadas"; S.filtro={q:"",estado:"__rev",mes:""}; render();};
   bindCallActions($("#main"));
 }
@@ -331,6 +368,13 @@ function modal(html){
   document.body.appendChild(bg); return bg;
 }
 
+async function sumarWA(tipo){
+  await safe(async()=>{
+    const r=await db.insert("ftr_wa_inbounds",{fecha:hoy(), fuente:"Sin dato", tipo});
+    S.wa.push(r); render();
+    toast(`+1 ${tipo==="propuesta"?"Propuesta":"Enlace"} WhatsApp`, async()=>{ await db.del("ftr_wa_inbounds",r.id); S.wa=S.wa.filter(x=>x.id!==r.id); render(); });
+  });
+}
 function modalWA(){
   const m=modal(`<h3>+1 Inbound WhatsApp</h3><p class="muted">¿De dónde viene?</p>
     <div class="choice"><button data-f="Link bio">🔗 Link de la bio</button><button data-f="Lead Magnet">🎁 Lead Magnet</button><button data-f="Referido">🤝 Referido</button></div>
@@ -338,7 +382,7 @@ function modalWA(){
     <div style="margin-top:12px"><button class="btn sec" data-close>Cancelar</button></div>`);
   m.querySelector("[data-close]").onclick=()=>m.remove();
   const guardar=async(fuente,lm)=>safe(async()=>{
-    const r=await db.insert("ftr_wa_inbounds",{fecha:hoy(), fuente, lead_magnet:lm||null});
+    const r=await db.insert("ftr_wa_inbounds",{fecha:hoy(), fuente, lead_magnet:lm||null, tipo:"inbound"});
     S.wa.push(r); m.remove(); render();
     toast(`+1 Inbound WhatsApp (${lm||fuente})`, async()=>{ await db.del("ftr_wa_inbounds",r.id); S.wa=S.wa.filter(x=>x.id!==r.id); render(); });
   });
@@ -507,13 +551,16 @@ function renderResumen(){
 
     ${esMes?`<div class="card" style="margin-top:12px">
       <b>Datos del mes que se meten a mano</b>
-      <p class="muted" style="margin:4px 0 0">Instagram y propuestas: los saca Claude de las conversaciones exportadas del setter (suma a las propuestas las que hagas tú por WhatsApp). Renovaciones: del CRM.</p>
+      <p class="muted" style="margin:4px 0 0">Instagram (totales, propuestas y enlaces): los saca Claude de las conversaciones del setter. Lo de WhatsApp se suma solo con los botones de "Hoy". Renovaciones: del CRM.</p>
       <div class="grid3"><div><label>Outbound IG (bienvenidas)</label><input type="number" id="t_out" value="${tm.ig_outbound||0}"></div>
         <div><label>Inbound IG</label><input type="number" id="t_in" value="${tm.ig_inbound||0}"></div>
         <div><label>Lead Magnet IG</label><input type="number" id="t_lm" value="${tm.ig_lm||0}"></div></div>
       <div class="grid3"><div><label>Propuestas Inbound</label><input type="number" id="t_pi" value="${tm.prop_inbound||0}"></div>
         <div><label>Propuestas Outbound</label><input type="number" id="t_po" value="${tm.prop_outbound||0}"></div>
         <div><label>Propuestas Lead Magnet</label><input type="number" id="t_pl" value="${tm.prop_lm||0}"></div></div>
+      <div class="grid3"><div><label>Enlaces Inbound</label><input type="number" id="t_ei" value="${tm.enl_inbound||0}"></div>
+        <div><label>Enlaces Outbound</label><input type="number" id="t_eo" value="${tm.enl_outbound||0}"></div>
+        <div><label>Enlaces Lead Magnet</label><input type="number" id="t_el" value="${tm.enl_lm||0}"></div></div>
       <div class="grid2"><div><label>Recaudado renovaciones (€)</label><input type="number" step="0.01" id="t_rr" value="${tm.recaudado_r||0}"></div>
         <div><label>Contratado renovaciones (€)</label><input type="number" step="0.01" id="t_cr" value="${tm.contratado_r||0}"></div></div>
       <div style="margin-top:10px"><button class="btn sm" id="t_save">Guardar datos del mes</button></div></div>`
@@ -525,20 +572,30 @@ function renderResumen(){
       [`Inbound <span class="muted">(IG ${r.inboundIG} + WA ${r.inboundWA})</span>`, r.inbound],["Agendadas Inbound", r.agIn],["% Inducción Inbound", pct(r.agIn,r.inbound),"pct"]])}</div>
     <div class="blk"><div class="hd lm">LEAD MAGNET</div>${filaTabla([
       ["Lead Magnet (IG)", r.lm],["Agendadas Lead Magnet", r.agLM],["% Inducción Lead Magnet", pct(r.agLM,r.lm),"pct"]])}</div>
-    <div class="blk"><div class="hd prop">LEADS Y LLAMADAS PROPUESTAS</div>${filaTabla([
-      ["Llamadas propuestas Inbound", r.propIn],["Llamadas propuestas Outbound", r.propOut],["Llamadas propuestas Lead Magnet", r.propLM],
-      ["<b>Llamadas propuestas totales</b>", r.propuestas],["% Agendadas / propuestas", pct(r.agendadas,r.propuestas),"pct"],
+    <div class="blk"><div class="hd prop">EMBUDO POR ORIGEN</div><div class="scroll"><table class="funnel">
+      <tr><th></th><th>Inbound</th><th>Outbound</th><th>LM</th><th>Total</th></tr>
+      ${[["Conversaciones",r.inbound,r.outbound,r.lm,r.inbound+r.outbound+r.lm],
+         ["Propuestas",r.propIn,r.propOut,r.propLM,r.propuestas],
+         ["Enlaces",r.enlIn,r.enlOut,r.enlLM,r.enlaces],
+         ["Agendadas",r.agIn,r.agOut,r.agLM,r.agendadas]].map(f=>`<tr><td>${f[0]}</td>${f.slice(1).map(v=>`<td>${v}</td>`).join("")}</tr>`).join("")}
+      ${[["% Conv. → propuesta",[r.propIn,r.inbound],[r.propOut,r.outbound],[r.propLM,r.lm],[r.propuestas,r.inbound+r.outbound+r.lm]],
+         ["% Propuesta → enlace",[r.enlIn,r.propIn],[r.enlOut,r.propOut],[r.enlLM,r.propLM],[r.enlaces,r.propuestas]],
+         ["% Enlace → agenda",[r.agIn,r.enlIn],[r.agOut,r.enlOut],[r.agLM,r.enlLM],[r.agendadas,r.enlaces]]].map(f=>`<tr class="pct"><td>${f[0]}</td>${f.slice(1).map(([a,b])=>`<td>${pct(a,b)}</td>`).join("")}</tr>`).join("")}
+    </table></div>
+    <p class="muted" style="padding:0 12px 10px;margin:0">Inbound = Instagram + WhatsApp (WA: ${r.inboundWA} inbound, ${r.propInWA} propuestas, ${r.enlInWA} enlaces).</p></div>
+    <div class="blk"><div class="hd prop">LEADS (para la academia)</div>${filaTabla([
+      ["Llamadas propuestas totales", r.propuestas],["% Agendadas / propuestas", pct(r.agendadas,r.propuestas),"pct"],
       [`<b>Leads</b> <span class="muted">(inbound + propuestas outbound y LM)</span>`, r.leads],["% Agendadas / leads", pct(r.agendadas,r.leads),"pct"]])}</div>
     <div class="blk"><div class="hd vent">VENTAS</div>${filaTabla([
       ["Agendadas <span class='muted'>(reservadas este periodo)</span>", r.agendadas],
       ["Llamadas del periodo <span class='muted'>(la videollamada caía en estas fechas)</span>", r.llamadasPeriodo],
       ["Realizadas", r.realizadas],["No show", r.noshow],...(r.pendientes?[["Pendientes o próximas", r.pendientes]]:[]),
       ["% Show up <span class='muted'>(realizadas / realizadas + no show)</span>", pct(r.realizadas,r.realizadas+r.noshow),"pct"],
-      ["Cerradas (= altas programa)", r.cerradas],["% Cierre <span class='muted'>(cerradas / realizadas del periodo)</span>", pct(r.cerradasPeriodo,r.realizadas),"pct"]])}</div>
+      ["Cerradas (= altas programa)", r.cerradas],["% Cierre <span class='muted'>(cerradas / realizadas)</span>", pct(r.cerradas,r.realizadas),"pct"]])}</div>
     <div class="blk"><div class="hd rec">RECAUDACIÓN</div>${filaTabla([
       ["Recaudado", eur(r.recaudado)],["Contratado", eur(r.contratado)],["Recaudado R", eur(r.recaudadoR)],["Contratado R", eur(r.contratadoR)],
       ["<b>Total Recaudado</b>", eur(r.totalRecaudado)],["<b>Total Contratado</b>", eur(r.totalContratado)]])}</div>
-    <div class="row"><button class="btn nar" id="cp1">Copiar columna para el Excel</button><button class="btn sec" id="cp2">Copiar Lead Magnet</button><button class="btn sec" id="cp3">Copiar Leads y propuestas</button></div>
+    <div class="row"><button class="btn nar" id="cp1">Copiar columna para el Excel</button><button class="btn sec" id="cp2">Copiar Lead Magnet</button><button class="btn sec" id="cp3">Copiar embudo</button></div>
     <p class="muted">Se copia en el mismo orden que tu hoja (Outbound → Total Contratado). Pega en la primera celda de la columna del mes.</p>
 
     <h2>Solo para ti</h2>
@@ -559,50 +616,181 @@ function renderResumen(){
   if($("#t_save")) $("#t_save").onclick=()=>safe(async()=>{
     const row={mes:P[0], ig_outbound:+$("#t_out").value||0, ig_inbound:+$("#t_in").value||0, ig_lm:+$("#t_lm").value||0,
       recaudado_r:+$("#t_rr").value||0, contratado_r:+$("#t_cr").value||0,
-      prop_inbound:+$("#t_pi").value||0, prop_outbound:+$("#t_po").value||0, prop_lm:+$("#t_pl").value||0, updated_at:new Date().toISOString()};
+      prop_inbound:+$("#t_pi").value||0, prop_outbound:+$("#t_po").value||0, prop_lm:+$("#t_pl").value||0,
+      enl_inbound:+$("#t_ei").value||0, enl_outbound:+$("#t_eo").value||0, enl_lm:+$("#t_el").value||0, updated_at:new Date().toISOString()};
     const saved=await db.upsert("ftr_totales_mes",row);
     const i=S.meses.findIndex(x=>x.mes===row.mes); if(i>=0) S.meses[i]={...S.meses[i],...saved}; else S.meses.push(saved);
     renderResumen(); toast("Datos del mes guardados");
   });
-  const num=v=>String(v).replace(".",",");
+  const num=v=>String(Math.round((+v||0)*100)/100).replace(".",",");
   const copy=async(vals,msg)=>{ try{ await navigator.clipboard.writeText(vals.join("\n")); toast(msg);}catch(e){ prompt("Copia esto:", vals.join("\n")); } };
   $("#cp1").onclick=()=>copy([r.outbound,r.agOut,num(pctNum(r.agOut,r.outbound))+"%",r.inbound,r.agIn,num(pctNum(r.agIn,r.inbound))+"%",
-    r.agendadas,r.realizadas,num(pctNum(r.realizadas,r.realizadas+r.noshow))+"%",r.cerradas,num(pctNum(r.cerradasPeriodo,r.realizadas))+"%",
+    r.agendadas,r.realizadas,num(pctNum(r.realizadas,r.realizadas+r.noshow))+"%",r.cerradas,num(pctNum(r.cerradas,r.realizadas))+"%",
     num(r.recaudado),num(r.contratado),num(r.recaudadoR),num(r.contratadoR),num(r.totalRecaudado),num(r.totalContratado)],"Columna copiada ✅");
-  $("#cp3").onclick=()=>copy([r.propIn,r.propOut,r.propLM,r.propuestas,num(pctNum(r.agendadas,r.propuestas))+"%",r.leads,num(pctNum(r.agendadas,r.leads))+"%"],"Leads y propuestas copiados ✅");
+  $("#cp3").onclick=()=>copy([["","Inbound","Outbound","Lead Magnet","Total"],["Conversaciones",r.inbound,r.outbound,r.lm,r.inbound+r.outbound+r.lm],["Propuestas",r.propIn,r.propOut,r.propLM,r.propuestas],["Enlaces",r.enlIn,r.enlOut,r.enlLM,r.enlaces],["Agendadas",r.agIn,r.agOut,r.agLM,r.agendadas]].map(f=>f.join("\t")),"Embudo copiado ✅");
   $("#cp2").onclick=()=>copy([r.lm,r.agLM,num(pctNum(r.agLM,r.lm))+"%"],"Lead Magnet copiado ✅");
 }
 
-/* ---------- HISTÓRICO ---------- */
+/* ---------- RECONTACTAR ---------- */
+const normC = c => String(c||"").toLowerCase().replace(/[\s@+\-().]/g,"");
+function catHistorico(h){
+  if(h.categoria) return h.categoria;
+  if(/^no cualifica/i.test(h.etapa||"")) return "Descartado";
+  if(/inbound/i.test(h.fuente||"")) return "Inbound sin llamada";
+  return "Frío";
+}
+function catLlamada(c){
+  if(c.recontacto_cat) return c.recontacto_cat;
+  if(c.estado==="No cerrada") return /^no cualifica/i.test(c.motivo||"") ? "Descartado" : "No cerrado";
+  if(c.estado==="No show" || c.estado==="Cancelada") return /^no cualifica/i.test(c.motivo||"") ? "Descartado" : "No show";
+  return null;
+}
+function recontactos(){
+  // última llamada por contacto (para ocultar a quien ya ha vuelto a agendar)
+  const ultima={};
+  S.llamadas.forEach(c=>{ const k=normC(c.contacto); if(k.length<3) return; const f=c.fecha_agendada||""; if(!ultima[k]||f>ultima[k].f) ultima[k]={f,id:c.id}; });
+  const items=[];
+  S.llamadas.forEach(c=>{
+    const cat=catLlamada(c); if(!cat) return;
+    const k=normC(c.contacto); if(k.length>=3 && ultima[k] && ultima[k].id!==c.id && ultima[k].f>=(c.fecha_agendada||"")) return;
+    items.push({tipo:"llamada", id:c.id, nombre:c.nombre, contacto:c.contacto, canal:c.canal, cat,
+      fecha:c.fecha_cierre||c.fecha_llamada||c.fecha_agendada, detalle:[c.estado, c.motivo, c.origen, c.lead_magnet].filter(Boolean).join(" · "), obs:c.observaciones});
+  });
+  S.historico.forEach(h=>{
+    const k=normC(h.contacto); if(k.length>=3 && ultima[k] && ultima[k].f>=(h.fecha||"")) return;
+    items.push({tipo:"hist", id:h.id, nombre:h.nombre, contacto:h.contacto, canal:h.canal, cat:catHistorico(h),
+      fecha:h.fecha, detalle:[h.etapa, h.fuente].filter(Boolean).join(" · "), obs:h.observaciones||h.motivo});
+  });
+  const ord=c=>CATS.indexOf(c);
+  return items.sort((a,b)=> ord(a.cat)-ord(b.cat) || (b.fecha||"").localeCompare(a.fecha||""));
+}
+function linkContacto(c, canal){
+  if(!c) return "";
+  const dig=String(c).replace(/\D/g,"");
+  const esTel = /^[+\d\s()\-.]+$/.test(String(c).trim()) && dig.length>=6;
+  if(esTel) return `<a href="https://wa.me/${dig}" target="_blank" rel="noopener">${esc(c)}</a>`;
+  const u=String(c).trim().replace(/^@/,"");
+  if(/^[\w.]+$/.test(u) && !/^\d+$/.test(u)) return `<a href="https://instagram.com/${encodeURIComponent(u)}" target="_blank" rel="noopener">@${esc(u)}</a>`;
+  return esc(c);
+}
+const haceDias = f => { if(!f) return ""; const d=Math.round((new Date(hoy()+"T12:00:00")-new Date(f+"T12:00:00"))/864e5); return d<=0?"hoy":d===1?"hace 1 día":`hace ${d} días`; };
 function renderHistorico(){
-  const q=S.histQ.toLowerCase();
-  const list=S.historico.filter(h=>!q||((h.nombre||"")+" "+(h.contacto||"")+" "+(h.observaciones||"")+" "+(h.etapa||"")).toLowerCase().includes(q))
-    .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const all=recontactos();
+  const f=S.recFiltro||"__todos", q=S.histQ.toLowerCase();
+  const cuenta=c=>all.filter(x=>x.cat===c).length;
+  let list=all.filter(x=> f==="__todos" ? x.cat!=="Descartado" : x.cat===f);
+  if(q) list=list.filter(x=>(x.nombre+" "+(x.contacto||"")+" "+(x.detalle||"")+" "+(x.obs||"")).toLowerCase().includes(q));
   $("#main").innerHTML=`
-    <p class="muted" style="margin-top:0">Leads que no llegaron a agendar. Úsalo para recontactar en lanzamientos. Si alguno agenda, pulsa "Agendó" y se crea su ficha.</p>
-    <div class="row"><input class="grow" id="hq" placeholder="Buscar…" value="${esc(S.histQ)}"><button class="btn sec" id="hadd">+ Añadir</button></div>
+    <p class="muted" style="margin-top:0">Leads a los que volver a escribir, ordenados por prioridad. Si alguien vuelve a agendar, desaparece de aquí solo.</p>
+    <div class="chips" id="chips">
+      <button class="chip ${f==="__todos"?"on":""}" data-c="__todos">Todos (${all.filter(x=>x.cat!=="Descartado").length})</button>
+      ${CATS.map(c=>`<button class="chip ${f===c?"on":""}" data-c="${c}"><span class="dot" style="background:${CAT_INFO[c].c}"></span>${c} (${cuenta(c)})</button>`).join("")}
+    </div>
+    ${f!=="__todos"?`<p class="muted" style="margin:0 0 8px">${CAT_INFO[f].d}</p>`:""}
+    <div class="row"><input class="grow" id="hq" placeholder="Buscar…" value="${esc(S.histQ)}" style="min-width:160px">
+      <button class="btn sec" id="hcopy">Copiar contactos</button><button class="btn sec" id="hadd">+ Añadir</button></div>
     <p class="muted">${list.length} leads</p>
-    <table class="tbl"><tr><th>Lead</th><th>Etapa</th><th></th></tr>
-    ${list.slice(0,300).map(h=>`<tr><td><b>${esc(h.nombre)}</b><br><span class="muted">${esc(h.contacto||"")} · ${esc(h.canal||"")} · ${h.fecha?fmtF(h.fecha):""}</span>${h.observaciones?`<br><span class="muted">${esc(h.observaciones)}</span>`:""}</td>
-      <td><span class="pill">${esc(h.etapa||"")}</span>${h.recontactado?'<br><span class="pill Cerrada" style="margin-top:4px">Recontactado</span>':""}</td>
-      <td style="text-align:right"><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><button class="btn sm" data-h="${h.id}">Agendó</button><button class="btn sm sec" style="white-space:nowrap" data-rc="${h.id}">${h.recontactado?"↺ Desmarcar":"✓ Contactado"}</button></div></td></tr>`).join("")}</table>`;
+    <div id="rlist">${list.slice(0,400).map(x=>`<div class="card"><div class="rc"><div style="min-width:0">
+        <b>${esc(x.nombre)}</b> ${linkContacto(x.contacto,x.canal)}<br>
+        <span class="muted">${esc(x.canal||"")}${x.detalle?" · "+esc(x.detalle):""} · ${haceDias(x.fecha)}</span>
+        ${x.obs?`<br><span class="muted">${esc(x.obs)}</span>`:""}</div>
+        <div style="text-align:right;flex:none"><span class="pill" style="background:${CAT_INFO[x.cat].c}1a;color:${CAT_INFO[x.cat].c}">${x.cat}</span><br>
+        <select data-mv="${x.tipo}|${esc(x.id)}" style="margin-top:6px" aria-label="Mover a otra categoría"><option value="">Mover a…</option>${CATS.filter(c=>c!==x.cat).map(c=>`<option>${c}</option>`).join("")}</select></div></div></div>`).join("")||'<div class="empty">Nadie en esta categoría</div>'}</div>
+    ${list.length>400?'<p class="muted">Mostrando 400. Usa el buscador para encontrar el resto.</p>':""}`;
+  document.querySelectorAll("#chips .chip").forEach(b=>b.onclick=()=>{ S.recFiltro=b.dataset.c; renderHistorico(); });
   $("#hq").oninput=e=>{ S.histQ=e.target.value; const pos=e.target.selectionStart; renderHistorico(); const i=$("#hq"); i.focus(); i.setSelectionRange(pos,pos); };
+  $("#hcopy").onclick=async()=>{
+    const txt=list.map(x=>[x.nombre,x.contacto||""].join("\t")).join("\n");
+    try{ await navigator.clipboard.writeText(txt); toast(`${list.length} contactos copiados ✅`);}catch(e){ prompt("Copia esto:", txt); }
+  };
+  document.querySelectorAll("[data-mv]").forEach(sel=>sel.onchange=()=>safe(async()=>{
+    const [tipo,id]=sel.dataset.mv.split("|"); const cat=sel.value; if(!cat) return;
+    if(tipo==="llamada"){ const c=S.llamadas.find(x=>x.id===id); Object.assign(c, await db.update("ftr_llamadas",id,{recontacto_cat:cat})); }
+    else { const h=S.historico.find(x=>x.id===id); Object.assign(h, await db.update("ftr_historico",id,{categoria:cat})); }
+    renderHistorico(); toast(`Movido a ${cat}`);
+  }));
   $("#hadd").onclick=()=>{
-    const m=modal(`<h3>Añadir al histórico</h3><label>Nombre</label><input id="a_n"><label>@usuario o teléfono</label><input id="a_c">
+    const m=modal(`<h3>Añadir para recontactar</h3><label>Nombre</label><input id="a_n"><label>@usuario o teléfono</label><input id="a_c">
       <label>Canal</label><select id="a_ca"><option>Instagram</option><option>WhatsApp</option></select>
-      <label>Etapa</label><select id="a_e"><option>Sin respuesta</option><option>No cualifica</option><option>Más adelante</option></select>
+      <label>Categoría</label><select id="a_e">${CATS.filter(c=>c==="Inbound sin llamada"||c==="Frío"||c==="Descartado").map(c=>`<option>${c}</option>`).join("")}</select>
       <label>Notas</label><textarea id="a_o"></textarea>
       <div class="row" style="margin-top:12px"><button class="btn" id="a_ok">Guardar</button><button class="btn sec" data-close>Cancelar</button></div>`);
     m.querySelector("[data-close]").onclick=()=>m.remove();
     m.querySelector("#a_ok").onclick=()=>safe(async()=>{
-      const r=await db.insert("ftr_historico",{nombre:m.querySelector("#a_n").value.trim(),contacto:m.querySelector("#a_c").value.trim()||null,canal:m.querySelector("#a_ca").value,etapa:m.querySelector("#a_e").value,fecha:hoy(),observaciones:m.querySelector("#a_o").value.trim()||null});
-      S.historico.push(r); m.remove(); renderHistorico();
+      const nombre=m.querySelector("#a_n").value.trim(); if(!nombre){ m.querySelector("#a_n").focus(); return; }
+      const cat=m.querySelector("#a_e").value;
+      const r=await db.insert("ftr_historico",{nombre,contacto:m.querySelector("#a_c").value.trim()||null,canal:m.querySelector("#a_ca").value,
+        etapa:"Añadido a mano",fuente:cat==="Inbound sin llamada"?"Inbound":null,categoria:cat,fecha:hoy(),observaciones:m.querySelector("#a_o").value.trim()||null});
+      S.historico.push(r); m.remove(); renderHistorico(); toast("Añadido");
     });
   };
-  document.querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{ const h=S.historico.find(x=>x.id===b.dataset.h);
-    modalLlamada(null,{nombre:h.nombre, contacto:h.contacto, canal:h.canal==="WhatsApp"?"WhatsApp":"Instagram", observaciones:h.observaciones, _histId:h.id}); });
-  document.querySelectorAll("[data-rc]").forEach(b=>b.onclick=()=>safe(async()=>{ const h=S.historico.find(x=>x.id===b.dataset.rc);
-    Object.assign(h, await db.update("ftr_historico",h.id,{recontactado:!h.recontactado})); renderHistorico(); }));
+}
+
+/* ---------- EVOLUCIÓN ---------- */
+const COL={in:"#2a78d6",out:"#eb6834",lm:"#1baf7a",azul:"#1d3557"};
+let chartsLib=null;
+function cargarChartJs(){
+  if(window.Chart) return Promise.resolve(window.Chart);
+  if(chartsLib) return chartsLib;
+  chartsLib=new Promise((res,rej)=>{ const sc=document.createElement("script"); sc.src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js";
+    sc.onload=()=>res(window.Chart); sc.onerror=()=>{ chartsLib=null; rej(new Error("no se pudo cargar")); }; document.head.appendChild(sc); });
+  return chartsLib;
+}
+function mesesEvolucion(n){
+  const conDatos=mesesDisponibles().slice().sort();
+  const fin=mesActual(); const out=[]; let [y,m]=fin.split("-").map(Number);
+  for(let i=0;i<n;i++){ out.unshift(`${y}-${String(m).padStart(2,"0")}`); m--; if(!m){m=12;y--;} }
+  const primero=conDatos[0]||fin;
+  return out.filter(x=>x>=primero);
+}
+const MES_CORTO = m => { const [y,mm]=m.split("-"); return new Date(+y,+mm-1,1).toLocaleDateString("es-ES",{month:"short"}).replace(".","")+" "+y.slice(2); };
+function renderEvolucion(){
+  const n=S.evoN||6, ms=mesesEvolucion(n), D=ms.map(m=>({m, ...calcular([m])}));
+  const cur=D[D.length-1], prev=D[D.length-2];
+  const sh=r=>r.realizadas+r.noshow?Math.round(r.realizadas/(r.realizadas+r.noshow)*1000)/10:null;
+  const ci=r=>r.realizadas?Math.round(r.cerradas/r.realizadas*1000)/10:null;
+  const ind=(a,b)=>b?Math.round(a/b*1000)/10:null;
+  const delta=(a,b,suf)=>{ if(a==null||b==null) return '<span class="muted">sin dato anterior</span>'; const d=Math.round((a-b)*10)/10; if(!d) return '<span class="muted">= que el mes anterior</span>'; return `<span class="${d>0?"up":"down"}">${d>0?"▲":"▼"} ${Math.abs(d).toLocaleString("es-ES")}${suf} vs mes anterior</span>`; };
+  const kpis=[["% Show up",sh(cur),prev&&sh(prev)," pts",v=>v==null?"—":v.toLocaleString("es-ES")+" %"],
+              ["% Cierre",ci(cur),prev&&ci(prev)," pts",v=>v==null?"—":v.toLocaleString("es-ES")+" %"],
+              ["Agendadas",cur.agendadas,prev&&prev.agendadas,"",v=>v],
+              ["Recaudado total",cur.totalRecaudado,prev&&prev.totalRecaudado," €",v=>eur(v)]];
+  $("#main").innerHTML=`
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Evolución mensual</h2>
+      <div class="seg" id="evoN" style="width:200px"><button data-v="6" class="${n===6?"on":""}">6 meses</button><button data-v="12" class="${n===12?"on":""}">12 meses</button></div></div>
+    <p class="muted">El mes en curso (${NOMBRE_MES(cur.m)}) aún no está cerrado.</p>
+    <div class="grid2" style="margin-bottom:12px">${kpis.map(([t,v,pv,suf,f])=>`<div class="kpi"><div class="t">${t}</div><div class="v">${f(v)}</div><div class="d">${delta(v,pv,suf)}</div></div>`).join("")}</div>
+    <div id="charts"></div>
+    <h2>Tabla de datos</h2>
+    <div class="card scroll"><table class="tbl" id="evoTabla"><tr><th>Mes</th><th>Outbound</th><th>Inbound</th><th>LM</th><th>Agend.</th><th>% Ind. In</th><th>% Show up</th><th>% Cierre</th><th>Cerradas</th><th>Recaudado</th><th>Contratado</th><th>Ticket</th></tr>
+      ${D.map(r=>`<tr><td>${MES_CORTO(r.m)}</td><td>${r.outbound}</td><td>${r.inbound}</td><td>${r.lm}</td><td>${r.agendadas}</td><td>${pct(r.agIn,r.inbound)}</td><td>${pct(r.realizadas,r.realizadas+r.noshow)}</td><td>${pct(r.cerradas,r.realizadas)}</td><td>${r.cerradas}</td><td>${eur(r.totalRecaudado)}</td><td>${eur(r.totalContratado)}</td><td>${r.cerradas?eur(r.ticket):"—"}</td></tr>`).join("")}</table></div>`;
+  document.querySelectorAll("#evoN button").forEach(b=>b.onclick=()=>{ S.evoN=+b.dataset.v; renderEvolucion(); });
+  const graficas=[
+    {id:"g1",t:"Outbound (bienvenidas)",tipo:"bar",series:[["Outbound",D.map(r=>r.outbound),COL.out]]},
+    {id:"g2",t:"Inbound y Lead Magnet",tipo:"bar",series:[["Inbound",D.map(r=>r.inbound),COL.in],["Lead Magnet",D.map(r=>r.lm),COL.lm]]},
+    {id:"g3",t:"Agendadas por origen",tipo:"bar",stack:true,series:[["Inbound",D.map(r=>r.agIn),COL.in],["Outbound",D.map(r=>r.agOut),COL.out],["Lead Magnet",D.map(r=>r.agLM),COL.lm]]},
+    {id:"g4",t:"% Inducción por origen",tipo:"line",pct:true,series:[["Inbound",D.map(r=>ind(r.agIn,r.inbound)),COL.in],["Outbound",D.map(r=>ind(r.agOut,r.outbound)),COL.out],["Lead Magnet",D.map(r=>ind(r.agLM,r.lm)),COL.lm]]},
+    {id:"g5",t:"% Show up y % cierre",tipo:"line",pct:true,series:[["% Show up",D.map(sh),COL.in],["% Cierre",D.map(ci),COL.out]]},
+    {id:"g6",t:"Ventas cerradas",tipo:"bar",series:[["Cerradas",D.map(r=>r.cerradas),COL.azul]]},
+    {id:"g7",t:"Recaudado y contratado (total, con renovaciones)",tipo:"line",eur:true,series:[["Recaudado",D.map(r=>r.totalRecaudado),COL.in],["Contratado",D.map(r=>r.totalContratado),COL.out]]},
+    {id:"g8",t:"Ticket medio (ventas nuevas)",tipo:"line",eur:true,series:[["Ticket medio",D.map(r=>r.cerradas?r.ticket:null),COL.azul]]}];
+  $("#charts").innerHTML=graficas.map(g=>`<div class="chartbox"><h3>${g.t}</h3><div class="cw"><canvas id="${g.id}" role="img" aria-label="${g.t}"></canvas></div></div>`).join("");
+  cargarChartJs().then(Chart=>{
+    if(S.tab!=="evolucion") return;
+    Chart.defaults.font.family="Poppins, system-ui, sans-serif"; Chart.defaults.color="#6b7785";
+    graficas.forEach(g=>{
+      const el=document.getElementById(g.id); if(!el) return;
+      const fmt=v=>v==null?"—":g.pct?v.toLocaleString("es-ES")+" %":g.eur?eur(v):v.toLocaleString("es-ES");
+      new Chart(el,{type:g.tipo,
+        data:{labels:D.map(r=>MES_CORTO(r.m)),datasets:g.series.map(([l,data,c])=>({label:l,data,backgroundColor:c,borderColor:c,borderWidth:g.tipo==="line"?2:0,
+          borderRadius:4,borderSkipped:"start",pointRadius:4,pointHoverRadius:6,pointBackgroundColor:c,pointBorderColor:"#fff",pointBorderWidth:2,spanGaps:true,maxBarThickness:28}))},
+        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+          plugins:{legend:{display:g.series.length>1,position:"top",align:"start",labels:{boxWidth:10,boxHeight:10,usePointStyle:true}},
+            tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`}}},
+          scales:{x:{stacked:!!g.stack,grid:{display:false}},y:{stacked:!!g.stack,beginAtZero:true,grid:{color:"#eef1f5"},border:{display:false},
+            ticks:{precision:0,callback:v=>g.pct?v+" %":g.eur?(v>=1000?(v/1000).toLocaleString("es-ES")+"k €":v+" €"):v}}}}});
+    });
+  }).catch(()=>{ const c=$("#charts"); if(c) c.innerHTML='<div class="card muted">No se han podido cargar las gráficas (¿sin conexión?). Tienes los datos en la tabla de abajo.</div>'; });
 }
 
 /* ---------- AJUSTES ---------- */
@@ -646,6 +834,14 @@ async function start(){
       {id:"a5",nombre:"Sergio Demo",contacto:"@sergio_10k",canal:"Instagram",origen:"Inbound",fuente:"Referido",lead_magnet:null,fecha_agendada:d(-1),fecha_llamada:d(1),estado:"Agendada",contratado:0,recaudado:0,revisar:false},
       {id:"a6",nombre:"Carla Demo",contacto:"+34 611",canal:"WhatsApp",origen:"Inbound",fuente:"Link bio",lead_magnet:null,fecha_agendada:d(-4),fecha_llamada:d(-2),estado:"Realizada",contratado:0,recaudado:0,revisar:false},
       {id:"a7",nombre:"Jorge Demo",contacto:"@jorge",canal:"Instagram",origen:"Inbound",fuente:null,lead_magnet:null,fecha_agendada:d(-7),fecha_llamada:d(-6),estado:"Cerrada",plan:"3 meses",contratado:447,recaudado:447,fecha_cierre:d(-6),revisar:false});
+    demoDB.ftr_wa_inbounds.push({id:7,fecha:t,fuente:"Sin dato",tipo:"propuesta"},{id:8,fecha:d(-2),fuente:"Sin dato",tipo:"enlace"});
+    Object.assign(demoDB.ftr_totales_mes[0],{enl_inbound:5,enl_outbound:3,enl_lm:2});
+    const pm=(()=>{const x=new Date(); x.setMonth(x.getMonth()-1); return x.toLocaleDateString("sv-SE").slice(0,7);})();
+    demoDB.ftr_totales_mes.push({mes:pm,ig_inbound:14,ig_outbound:520,ig_lm:25,recaudado_r:900,contratado_r:900,prop_inbound:7,prop_outbound:9,prop_lm:5,enl_inbound:4,enl_outbound:4,enl_lm:2});
+    demoDB.ftr_llamadas.push({id:"b1",nombre:"Marta Demo",contacto:"@marta",canal:"Instagram",origen:"Inbound",fecha_agendada:pm+"-10",fecha_llamada:pm+"-12",estado:"Cerrada",plan:"6 meses",contratado:697,recaudado:697,fecha_cierre:pm+"-12",revisar:false},
+      {id:"b2",nombre:"Luis Demo",contacto:"+34 612 345 678",canal:"WhatsApp",origen:"Inbound",fuente:"Link bio",fecha_agendada:pm+"-14",fecha_llamada:pm+"-15",estado:"No cerrada",motivo:"No es el momento",fecha_cierre:pm+"-15",contratado:0,recaudado:0,revisar:false},
+      {id:"b3",nombre:"Rosa Demo",contacto:"@rosa.run",canal:"Instagram",origen:"Outbound",fecha_agendada:pm+"-20",fecha_llamada:pm+"-21",estado:"No show",contratado:0,recaudado:0,revisar:false});
+    demoDB.ftr_historico.push({id:"h3",nombre:"Elena Demo",contacto:"@elena.10k",canal:"Instagram",fuente:"Lead Magnet",etapa:"Setter",categoria:"Frío",fecha:d(-3),observaciones:"Enlace enviado sin reservar (setter)"});
     demoDB.ftr_historico.push({id:"h2",nombre:"Otro lead",contacto:"+34 622",canal:"WhatsApp",fuente:"Inbound DM",etapa:"No cualifica",fecha:d(-30),observaciones:"Quería solo entrenamiento",recontactado:false});
     return start();
   }
