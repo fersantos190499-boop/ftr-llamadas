@@ -566,6 +566,7 @@ function renderResumen(){
       <div style="margin-top:10px"><button class="btn sm" id="t_save">Guardar datos del mes</button></div></div>`
       :`<p class="muted">Vista de trimestre: suma de los 3 meses. Los datos manuales se editan mes a mes.</p>`}
 
+    ${esMes?`<button class="btn big nar" id="bAcc" style="margin-top:14px">📋 Rellenar accountability de ${NOMBRE_MES(P[0])}</button>`:""}
     <h2>Para la academia</h2>
     <div class="blk"><div class="hd conv">CONVERSACIONES</div>${filaTabla([
       ["Outbound", r.outbound],["Agendadas Outbound", r.agOut],["% Inducción Outbound", pct(r.agOut,r.outbound),"pct"],
@@ -611,6 +612,7 @@ function renderResumen(){
       <div class="kpi"><div class="t">Ticket medio</div><div class="v">${r.cerradas?eur(r.contratado/r.cerradas):"—"}</div></div>
       <div class="kpi"><div class="t">Agendadas → venta</div><div class="v">${pct(r.cerradas,r.agendadas)}</div></div>
     </div>`;
+  if($("#bAcc")) $("#bAcc").onclick=()=>modalAccountability(P[0], r);
   $("#tipo").querySelectorAll("button").forEach(b=>b.onclick=()=>{ S.periodo = b.dataset.v==="mes"?{tipo:"mes",valor:meses[0]}:{tipo:"tri",valor:trimestres()[0]}; renderResumen(); });
   $("#per").onchange=e=>{S.periodo.valor=e.target.value; renderResumen();};
   if($("#t_save")) $("#t_save").onclick=()=>safe(async()=>{
@@ -629,6 +631,45 @@ function renderResumen(){
     num(r.recaudado),num(r.contratado),num(r.recaudadoR),num(r.contratadoR),num(r.totalRecaudado),num(r.totalContratado)],"Columna copiada ✅");
   $("#cp3").onclick=()=>copy([["","Inbound","Outbound","Lead Magnet","Total"],["Conversaciones",r.inbound,r.outbound,r.lm,r.inbound+r.outbound+r.lm],["Propuestas",r.propIn,r.propOut,r.propLM,r.propuestas],["Enlaces",r.enlIn,r.enlOut,r.enlLM,r.enlaces],["Agendadas",r.agIn,r.agOut,r.agLM,r.agendadas]].map(f=>f.join("\t")),"Embudo copiado ✅");
   $("#cp2").onclick=()=>copy([r.lm,r.agLM,num(pctNum(r.agLM,r.lm))+"%"],"Lead Magnet copiado ✅");
+}
+
+/* ---------- ACCOUNTABILITY ---------- */
+function modalAccountability(mes, r){
+  const fuera = t => `<span class="muted">→ ${t}</span>`;
+  const secciones=[
+    ["TRÁFICO",[["¿Cuántos seguidores en Instagram has ganado este mes?",null,fuera("Instagram / Meta")],
+                ["¿Cuánto has invertido en publicidad este mes?",null,fuera("Administrador de anuncios de Meta")]]],
+    ["VENTAS",[["¿Cuántos contactos de outbound has realizado este mes?",r.outbound,"Outbound (bienvenidas)"],
+               ["¿Cuántos leads has generado este mes?",r.propuestas,"Llamadas propuestas totales (para la academia, lead = a quien propones llamada)"],
+               ["¿Cuántas entrevistas te han agendado este mes?",r.agendadas,"Agendadas"],
+               ["¿Cuántas entrevistas has realizado este mes?",r.realizadas,"Realizadas"],
+               ["¿Cuántas entrevistas has cerrado?",r.cerradas,"Cerradas"],
+               ["¿A qué precio medio has cerrado?",r.cerradas?Math.round(r.contratado/r.cerradas):null,r.cerradas?"Contratado ÷ cerradas (€)":"Sin ventas este mes"]]],
+    ["FINANZAS",[["¿Cuál era tu objetivo económico para este mes?",null,fuera("tu objetivo")],
+                 ["¿Cuál ha sido tu facturación total?",Math.round(r.totalContratado*100)/100,`Total contratado (ventas ${eur(r.contratado)} + renovaciones ${eur(r.contratadoR)})`],
+                 ["¿Cuáles han sido tus gastos totales?",null,fuera("app de finanzas")],
+                 ["¿Cuánto has gastado en tu equipo de adquisición?",null,fuera("finanzas: setter + ads + editor")]]],
+    ["SERVICIO",[["¿Cuántos clientes activos tienes ahora mismo?",null,fuera("CRM")],
+                 ["¿A cuántos clientes les tocaba renovar este mes?",null,fuera("CRM")],
+                 ["De los que tocaban, ¿cuántos han renovado?",null,fuera("CRM")],
+                 ["¿Cuántos clientes se han dado de baja este mes?",null,fuera("CRM")]]]];
+  const avisos=[];
+  if(!r.outbound) avisos.push("Falta el <b>Outbound</b> del mes en «Datos del mes».");
+  if(!r.propuestas) avisos.push("Faltan las <b>propuestas</b> del mes (leads): mételas en «Datos del mes».");
+  if(r.pendientes) avisos.push(`Hay <b>${r.pendientes}</b> llamada(s) del mes sin resultado todavía (pendientes o próximas). Si el mes ya ha acabado, márcalas antes de enviar el accountability.`);
+  if(!r.contratadoR) avisos.push("Las <b>renovaciones</b> del mes están a 0: si hubo, mételas en «Datos del mes» para que la facturación sea completa.");
+  const m=modal(`<h3>Accountability · ${NOMBRE_MES(mes)}</h3>
+    <p class="muted" style="margin-top:0">En el mismo orden que el formulario de la academia. Toca <b>Copiar</b> y pega en su casilla.</p>
+    ${avisos.length?`<div class="card" style="background:var(--amar-s);border-color:#f0dfb4">${avisos.map(a=>"⚠️ "+a).join("<br>")}</div>`:""}
+    ${secciones.map(([t,qs])=>`<h4 style="margin:16px 0 6px;color:var(--naranja);font-size:13px;letter-spacing:.05em">${t}</h4>
+      ${qs.map(([q,v,src],i)=>`<div class="card" style="padding:10px 12px;margin-bottom:6px"><div class="row" style="align-items:flex-start;flex-wrap:nowrap">
+        <div class="grow" style="min-width:0"><div style="font-size:14px">${q}</div><div class="muted" style="font-size:12px">${v==null?src:esc(src)}</div></div>
+        ${v==null?"":`<div style="text-align:right;flex:none"><div style="font-weight:700;font-size:18px;color:var(--azul)">${String(v).replace(".",",")}</div><button class="btn sm sec" data-cp="${String(v).replace(".",",")}">Copiar</button></div>`}
+      </div></div>`).join("")}`).join("")}
+    <p class="muted">La valoración final (objetivos, en qué necesitas ayuda y plan a 30 días) la escribes tú.</p>
+    <div style="margin-top:10px"><button class="btn sec" data-close>Cerrar</button></div>`);
+  m.querySelector("[data-close]").onclick=()=>m.remove();
+  m.querySelectorAll("[data-cp]").forEach(b=>b.onclick=async()=>{ try{ await navigator.clipboard.writeText(b.dataset.cp); b.textContent="✓ Copiado"; setTimeout(()=>b.textContent="Copiar",1500);}catch(e){ prompt("Copia esto:", b.dataset.cp); } });
 }
 
 /* ---------- RECONTACTAR ---------- */
