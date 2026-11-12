@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fuel to Run — Registro de llamadas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --azul:#1d3557; --azul2:#2b4a75; --naranja:#e8734a; --naranja-s:#fdf2ec;
+  --fondo:#f6f7f9; --card:#fff; --borde:#e3e6eb; --texto:#1f2933; --suave:#6b7785;
+  --verde:#1f8a5b; --verde-s:#e6f4ee; --rojo:#c0392b; --rojo-s:#fbeaea; --amar:#b7791f; --amar-s:#fdf6e3;
+  --r:14px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Poppins,system-ui,sans-serif;background:var(--fondo);color:var(--texto);font-size:15px}
+button,input,select,textarea{font-family:inherit;font-size:15px}
+header{background:var(--azul);color:#fff;padding:14px 16px 0;position:sticky;top:0;z-index:5}
+header h1{margin:0 0 10px;font-size:17px;font-weight:600}
+header h1 span{color:var(--naranja)}
+nav{display:flex;gap:4px;overflow-x:auto}
+nav button{background:none;border:0;color:#cfd8e3;padding:10px 12px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;font-weight:500}
+nav button.on{color:#fff;border-bottom-color:var(--naranja)}
+main{max-width:860px;margin:0 auto;padding:16px 14px 80px}
+h2{font-size:16px;margin:22px 0 10px;color:var(--azul)}
+h2:first-child{margin-top:4px}
+.card{background:var(--card);border:1px solid var(--borde);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grow{flex:1}
+.btn{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600;background:var(--azul);color:#fff}
+.btn.sec{background:#eef1f5;color:var(--azul)}
+.btn.nar{background:var(--naranja)}
+.btn.ok{background:var(--verde)}
+.btn.ko{background:var(--rojo)}
+.btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn.big{width:100%;padding:16px;font-size:16px;border-radius:var(--r)}
+.btn:disabled{opacity:.5;cursor:default}
+.muted{color:var(--suave);font-size:13px}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;background:#eef1f5;color:var(--azul)}
+.pill.Cerrada{background:var(--verde-s);color:var(--verde)}
+.pill.No.cerrada,.pill.Nocerrada{background:var(--rojo-s);color:var(--rojo)}
+.pill.Noshow{background:var(--rojo-s);color:var(--rojo)}
+.pill.Realizada{background:var(--amar-s);color:var(--amar)}
+.pill.Agendada{background:#e8eef7;color:var(--azul2)}
+.pill.Cancelada{background:#eee;color:#777}
+.pill.rev{background:var(--amar-s);color:var(--amar)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:560px){.grid3{grid-template-columns:1fr}}
+label{display:block;font-size:13px;color:var(--suave);margin:8px 0 4px}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--borde);border-radius:10px;background:#fff}
+textarea{min-height:60px}
+.call{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.call b{font-weight:600}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.kpi{background:#fff;border:1px solid var(--borde);border-radius:var(--r);padding:12px}
+.kpi .t{font-size:12px;color:var(--suave);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.kpi .v{font-size:22px;font-weight:700;color:var(--azul)}
+.blk{border-radius:var(--r);overflow:hidden;border:1px solid var(--borde);margin-bottom:12px;background:#fff}
+.blk .hd{padding:9px 12px;font-weight:700;color:#fff;font-size:14px}
+.blk table{width:100%;border-collapse:collapse}
+.blk td{padding:8px 12px;border-top:1px solid var(--borde)}
+.blk td:last-child{text-align:right;font-weight:600}
+.blk tr.pct td{color:var(--naranja)}
+.hd.conv{background:#2f6b3a}.hd.vent{background:#24467a}.hd.rec{background:#6a1f3a}.hd.lm{background:var(--naranja)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;color:var(--suave);font-weight:600;font-size:12px;padding:6px 8px}
+.tbl td{padding:7px 8px;border-top:1px solid var(--borde)}
+.modal-bg{position:fixed;inset:0;background:rgba(15,25,40,.45);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.modal{background:#fff;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px;max-height:92vh;overflow:auto}
+@media(min-width:600px){.modal-bg{align-items:center}.modal{border-radius:18px}}
+.modal h3{margin:0 0 6px;color:var(--azul)}
+.choice{display:grid;gap:8px;margin-top:10px}
+.choice button{padding:14px;border-radius:12px;border:1px solid var(--borde);background:#fff;font-weight:600;cursor:pointer;text-align:left}
+.choice button:hover{border-color:var(--naranja);background:var(--naranja-s)}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--azul);color:#fff;padding:10px 16px;border-radius:10px;z-index:30;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.toast button{background:none;border:0;color:var(--naranja);font-weight:700;margin-left:10px;cursor:pointer}
+.login{max-width:360px;margin:12vh auto;padding:0 16px}
+.seg{display:flex;background:#eef1f5;border-radius:10px;padding:3px}
+.seg button{flex:1;border:0;background:none;padding:8px;border-radius:8px;font-weight:600;color:var(--suave);cursor:pointer}
+.seg button.on{background:#fff;color:var(--azul);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.empty{text-align:center;color:var(--suave);padding:18px}
+.counter{font-size:30px;font-weight:700;color:var(--naranja)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* =================== CONFIG =================== */
+const SUPABASE_URL = "https://fjtvgwxebyaanbbxbnmy.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqdHZnd3hlYnlhYW5iYnhibm15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMTE2NTQsImV4cCI6MjEwMTY4NzY1NH0.OkNHGLHLp-PhAL0cj77H23NR-ZBdjIEQTqed07Vp5qU";
+const DEMO = new URLSearchParams(location.search).has("demo");
+
+const PLANES = [
+  {n:"3 meses", p:447}, {n:"6 meses", p:697}, {n:"6+1 meses", p:697},
+  {n:"Programa anual", p:1247}, {n:"Mes de prueba", p:149}, {n:"Otro", p:0}
+];
+const MOTIVOS = ["Dinero","No es el momento","Quería entrenamiento","Pareja / familia","No cualifica","Otro"];
+const ESTADOS = ["Agendada","No show","Realizada","Cerrada","No cerrada","Cancelada"];
+const ORIGENES = ["Inbound","Outbound","Lead Magnet"];
+
+/* =================== DATA LAYER =================== */
+const sb = (!DEMO && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+const S = { llamadas:[], wa:[], meses:[], historico:[], lms:[], tab:"hoy", user:null,
+            periodo:{tipo:"mes", valor:null}, filtro:{q:"", estado:"", mes:""}, histQ:"" };
+
+const demoDB = {
+  ftr_llamadas:[], ftr_wa_inbounds:[], ftr_totales_mes:[], ftr_historico:[],
+  ftr_lead_magnets:["Test del corredor","Detector del Corredor Estancado","Calculadora de déficit","Guía Maratón de Valencia","Guía 21K","Checklist nutrición en carrera","Día de carga de hidratos","5 mejores desayunos","Otro"].map((n,i)=>({nombre:n,activo:true,orden:i}))
+};
+const uid = () => Math.random().toString(36).slice(2,12);
+const KEYS = {ftr_llamadas:"id", ftr_wa_inbounds:"id", ftr_totales_mes:"mes", ftr_historico:"id", ftr_lead_magnets:"nombre"};
+
+const db = {
+  async all(t){
+    if(DEMO) return JSON.parse(JSON.stringify(demoDB[t]));
+    let out=[], from=0;
+    while(true){
+      const {data,error} = await sb.from(t).select("*").range(from, from+999);
+      if(error) throw error;
+      out = out.concat(data); if(data.length<1000) break; from+=1000;
+    }
+    return out;
+  },
+  async insert(t,row){
+    if(DEMO){ const r={...row}; if(t!=="ftr_totales_mes"&&t!=="ftr_lead_magnets"&&!r.id) r.id=t==="ftr_wa_inbounds"?Date.now()+Math.random():uid(); demoDB[t].push(r); return r; }
+    const {data,error} = await sb.from(t).insert(row).select().single();
+    if(error) throw error; return data;
+  },
+  async update(t,key,patch){
+    const k=KEYS[t];
+    if(DEMO){ const r=demoDB[t].find(x=>x[k]===key); Object.assign(r,patch); return r; }
+    const {data,error} = await sb.from(t).update(patch).eq(k,key).select().single();
+    if(error) throw error; return data;
+  },
+  async upsert(t,row){
+    const k=KEYS[t];
+    if(DEMO){ const r=demoDB[t].find(x=>x[k]===row[k]); if(r) Object.assign(r,row); else demoDB[t].push({...row}); return row; }
+    const {data,error} = await sb.from(t).upsert(row).select().single();
+    if(error) throw error; return data;
+  },
+  async del(t,key){
+    const k=KEYS[t];
+    if(DEMO){ demoDB[t]=demoDB[t].filter(x=>x[k]!==key); return; }
+    const {error} = await sb.from(t).delete().eq(k,key);
+    if(error) throw error;
+  }
+};
+
+async function loadAll(){
+  const [l,w,m,h,lm] = await Promise.all(["ftr_llamadas","ftr_wa_inbounds","ftr_totales_mes","ftr_historico","ftr_lead_magnets"].map(t=>db.all(t)));
+  S.llamadas=l; S.wa=w; S.meses=m; S.historico=h; S.lms=lm.sort((a,b)=>a.orden-b.orden);
+}
+
+/* =================== HELPERS =================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hoy = () => new Date().toLocaleDateString("sv-SE");
+const mesDe = d => (d||"").slice(0,7);
+const mesActual = () => hoy().slice(0,7);
+const eur = n => (Math.round((+n||0)*100)/100).toLocaleString("es-ES",{maximumFractionDigits:2})+" €";
+const pct = (a,b) => b ? (a/b*100).toLocaleString("es-ES",{maximumFractionDigits:1})+" %" : "—";
+const pctNum = (a,b) => b ? Math.round(a/b*1000)/10 : 0;
+const fmtF = d => d ? new Date(d+"T12:00:00").toLocaleDateString("es-ES",{weekday:"short",day:"numeric",month:"short"}) : "sin fecha";
+const NOMBRE_MES = m => { const [y,mm]=m.split("-"); return new Date(+y,+mm-1,1).toLocaleDateString("es-ES",{month:"long",year:"numeric"}); };
+const lmActivos = () => S.lms.filter(x=>x.activo).map(x=>x.nombre);
+function toast(msg, undo){
+  document.querySelectorAll(".toast").forEach(t=>t.remove());
+  const t=document.createElement("div"); t.className="toast"; t.innerHTML=esc(msg);
+  if(undo){ const b=document.createElement("button"); b.textContent="Deshacer"; b.onclick=async()=>{t.remove(); await undo();}; t.appendChild(b); }
+  document.body.appendChild(t); setTimeout(()=>t.remove(), undo?6000:2500);
+}
+async function safe(fn){ try{ await fn(); } catch(e){ console.error(e); alert("No se ha podido guardar: "+(e.message||e)+"\n\nRevisa tu conexión y vuelve a intentarlo."); } }
+
+function mesesDisponibles(){
+  const set=new Set([mesActual()]);
+  S.llamadas.forEach(c=>{ set.add(mesDe(c.fecha_agendada)); if(c.fecha_cierre) set.add(mesDe(c.fecha_cierre)); });
+  S.wa.forEach(w=>set.add(mesDe(w.fecha))); S.meses.forEach(m=>set.add(m.mes));
+  return [...set].filter(Boolean).sort().reverse();
+}
+function trimestres(){
+  const set=new Set(mesesDisponibles().map(m=>{const [y,mm]=m.split("-"); return y+"-T"+Math.ceil(+mm/3);}));
+  return [...set].sort().reverse();
+}
+function mesesDelPeriodo(){
+  const {tipo,valor}=S.periodo;
+  if(tipo==="mes") return [valor];
+  const [y,t]=valor.split("-T"); const q=+t;
+  return [1,2,3].map(i=>`${y}-${String((q-1)*3+i).padStart(2,"0")}`);
+}
+
+/* =================== MÉTRICAS =================== */
+function calcular(meses){
+  const inP = d => d && meses.includes(mesDe(d));
+  const tot = {ig_inbound:0, ig_outbound:0, ig_lm:0, recaudado_r:0, contratado_r:0};
+  S.meses.filter(m=>meses.includes(m.mes)).forEach(m=>Object.keys(tot).forEach(k=>tot[k]+=(+m[k]||0)));
+  const wa = S.wa.filter(w=>inP(w.fecha));
+  const ag = S.llamadas.filter(c=>inP(c.fecha_agendada));
+  const agO = o => ag.filter(c=>c.origen===o).length;
+  const realizadas = S.llamadas.filter(c=>["Realizada","Cerrada","No cerrada"].includes(c.estado) && inP(c.fecha_llamada || c.fecha_agendada));
+  const cerradas = S.llamadas.filter(c=>c.estado==="Cerrada" && inP(c.fecha_cierre || c.fecha_llamada));
+  const inboundTot = tot.ig_inbound + wa.length;
+  const r = {
+    outbound: tot.ig_outbound, agOut: agO("Outbound"),
+    inbound: inboundTot, inboundIG: tot.ig_inbound, inboundWA: wa.length, agIn: agO("Inbound"),
+    lm: tot.ig_lm, agLM: agO("Lead Magnet"),
+    agendadas: ag.length, realizadas: realizadas.length, cerradas: cerradas.length,
+    noshow: S.llamadas.filter(c=>c.estado==="No show" && inP(c.fecha_llamada||c.fecha_agendada)).length,
+    recaudado: cerradas.reduce((s,c)=>s+(+c.recaudado||0),0),
+    contratado: cerradas.reduce((s,c)=>s+(+c.contratado||0),0),
+    recaudadoR: tot.recaudado_r, contratadoR: tot.contratado_r,
+    wa, ag, cerradasList: cerradas
+  };
+  r.totalRecaudado = r.recaudado + r.recaudadoR;
+  r.totalContratado = r.contratado + r.contratadoR;
+  return r;
+}
+
+/* =================== RENDER =================== */
+function render(){
+  if(!S.user && !DEMO){ renderLogin(); return; }
+  const tabs=[["hoy","Hoy"],["llamadas","Llamadas"],["resumen","Resumen"],["historico","Histórico"],["ajustes","Ajustes"]];
+  $("#app").innerHTML = `
+  <header><h1>Fuel to Run · <span>Registro de llamadas</span>${DEMO?' <small style="opacity:.7">(DEMO)</small>':''}</h1>
+    <nav>${tabs.map(([k,n])=>`<button class="${S.tab===k?"on":""}" data-tab="${k}">${n}</button>`).join("")}</nav></header>
+  <main id="main"></main>`;
+  document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; render();});
+  ({hoy:renderHoy, llamadas:renderLlamadas, resumen:renderResumen, historico:renderHistorico, ajustes:renderAjustes})[S.tab]();
+}
+
+function renderLogin(){
+  $("#app").innerHTML = `<div class="login card">
+    <h2 style="margin-top:0">Fuel to Run · Registro de llamadas</h2>
+    <p class="muted">Entra con el mismo usuario que usas en la app de finanzas.</p>
+    <label>Email</label><input id="em" type="email" autocomplete="username">
+    <label>Contraseña</label><input id="pw" type="password" autocomplete="current-password">
+    <div style="margin-top:14px"><button class="btn big" id="go">Entrar</button></div>
+    <p class="muted" id="lerr" style="color:var(--rojo)"></p></div>`;
+  const go = async()=>{
+    $("#go").disabled=true;
+    const {data,error} = await sb.auth.signInWithPassword({email:$("#em").value.trim(), password:$("#pw").value});
+    if(error){ $("#lerr").textContent="No se ha podido entrar: "+error.message; $("#go").disabled=false; return; }
+    S.user=data.user; await start();
+  };
+  $("#go").onclick=go; $("#pw").onkeydown=e=>{ if(e.key==="Enter") go(); };
+}
+
+/* ---------- HOY ---------- */
+function callCard(c, acciones=true){
+  const sub=[c.canal, c.origen, c.lead_magnet, c.fuente && c.canal==="WhatsApp" ? c.fuente : (c.fuente==="Referido"?"Referido":null)].filter(Boolean).join(" · ");
+  return `<div class="card"><div class="call"><div>
+      <b>${esc(c.nombre)}</b> ${c.contacto?`<span class="muted">${esc(c.contacto)}</span>`:""}<br>
+      <span class="muted">${esc(sub)}</span><br>
+      <span class="muted">Llamada: ${fmtF(c.fecha_llamada)}</span>
+    </div><div style="text-align:right"><span class="pill ${c.estado.replace(/\s/g,"")}">${c.estado}</span>
+      ${c.revisar?'<br><span class="pill rev" style="margin-top:4px">Revisar</span>':""}</div></div>
+    ${acciones?`<div class="acts">
+      <button class="btn sm ok" data-a="cerrar" data-id="${c.id}">Cerrada</button>
+      <button class="btn sm ko" data-a="nocerrar" data-id="${c.id}">No cerrada</button>
+      <button class="btn sm sec" data-a="noshow" data-id="${c.id}">No show</button>
+      ${c.estado==="Agendada"?`<button class="btn sm sec" data-a="realizada" data-id="${c.id}">Hecha, decide luego</button>`:""}
+      <button class="btn sm sec" data-a="editar" data-id="${c.id}">Editar</button></div>`
+      :`<div class="acts"><button class="btn sm sec" data-a="editar" data-id="${c.id}">Editar</button></div>`}
+  </div>`;
+}
+function bindCallActions(root){
+  root.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{
+    const c=S.llamadas.find(x=>x.id===b.dataset.id); const a=b.dataset.a;
+    if(a==="cerrar") modalCerrar(c);
+    else if(a==="nocerrar") modalNoCerrar(c);
+    else if(a==="noshow") quickEstado(c,"No show");
+    else if(a==="realizada") quickEstado(c,"Realizada");
+    else if(a==="editar") modalLlamada(c);
+  });
+}
+async function quickEstado(c, estado){
+  const prev={estado:c.estado, fecha_llamada:c.fecha_llamada};
+  await safe(async()=>{
+    const patch={estado}; if(!c.fecha_llamada) patch.fecha_llamada=hoy();
+    Object.assign(c, await db.update("ftr_llamadas",c.id,patch));
+    render(); toast(`${c.nombre}: ${estado}`, async()=>{ Object.assign(c, await db.update("ftr_llamadas",c.id,prev)); render(); });
+  });
+}
+
+function renderHoy(){
+  const t=hoy(), m=mesActual();
+  const waHoy=S.wa.filter(w=>w.fecha===t).length, waMes=S.wa.filter(w=>mesDe(w.fecha)===m).length;
+  const pend=S.llamadas.filter(c=>(c.estado==="Agendada" && (!c.fecha_llamada || c.fecha_llamada<=t)) || c.estado==="Realizada")
+    .sort((a,b)=>(a.fecha_llamada||"").localeCompare(b.fecha_llamada||""));
+  const prox=S.llamadas.filter(c=>c.estado==="Agendada" && c.fecha_llamada && c.fecha_llamada>t).sort((a,b)=>a.fecha_llamada.localeCompare(b.fecha_llamada));
+  const rev=S.llamadas.filter(c=>c.revisar).length;
+  const agMes=S.llamadas.filter(c=>mesDe(c.fecha_agendada)===m).length;
+  const cerrMes=S.llamadas.filter(c=>c.estado==="Cerrada" && mesDe(c.fecha_cierre||c.fecha_llamada)===m).length;
+  $("#main").innerHTML = `
+    <div class="grid2">
+      <button class="btn big nar" id="bWA">+1 Inbound WhatsApp</button>
+      <button class="btn big" id="bNew">+ Llamada agendada</button>
+    </div>
+    <div class="grid3" style="margin-top:10px">
+      <div class="kpi"><div class="t">Inbound WA hoy / mes</div><div class="v">${waHoy} <span class="muted">/ ${waMes}</span></div></div>
+      <div class="kpi"><div class="t">Agendadas este mes</div><div class="v">${agMes}</div></div>
+      <div class="kpi"><div class="t">Cerradas este mes</div><div class="v">${cerrMes}</div></div>
+    </div>
+    ${rev?`<div class="card" style="background:var(--amar-s);border-color:#f0dfb4;margin-top:10px">⚠️ Hay <b>${rev}</b> fichas del histórico para revisar. <a href="#" id="goRev">Verlas</a></div>`:""}
+    <h2>Pendientes de resultado (${pend.length})</h2>
+    <div id="pend">${pend.length?pend.map(c=>callCard(c)).join(""):'<div class="empty">Nada pendiente 🙌</div>'}</div>
+    <h2>Próximas llamadas (${prox.length})</h2>
+    <div id="prox">${prox.length?prox.map(c=>callCard(c,false)).join(""):'<div class="empty">No hay llamadas programadas</div>'}</div>`;
+  $("#bWA").onclick=modalWA; $("#bNew").onclick=()=>modalLlamada();
+  if($("#goRev")) $("#goRev").onclick=e=>{e.preventDefault(); S.tab="llamadas"; S.filtro={q:"",estado:"__rev",mes:""}; render();};
+  bindCallActions($("#main"));
+}
+
+/* ---------- MODALES ---------- */
+function modal(html){
+  const bg=document.createElement("div"); bg.className="modal-bg";
+  bg.innerHTML=`<div class="modal">${html}</div>`;
+  bg.onclick=e=>{ if(e.target===bg) bg.remove(); };
+  document.body.appendChild(bg); return bg;
+}
+
+function modalWA(){
+  const m=modal(`<h3>+1 Inbound WhatsApp</h3><p class="muted">¿De dónde viene?</p>
+    <div class="choice"><button data-f="Link bio">🔗 Link de la bio</button><button data-f="Lead Magnet">🎁 Lead Magnet</button><button data-f="Referido">🤝 Referido</button></div>
+    <div id="lmSel" style="display:none"><label>¿Qué lead magnet?</label><div class="choice">${lmActivos().map(n=>`<button data-lm="${esc(n)}">${esc(n)}</button>`).join("")}</div></div>
+    <div style="margin-top:12px"><button class="btn sec" data-close>Cancelar</button></div>`);
+  m.querySelector("[data-close]").onclick=()=>m.remove();
+  const guardar=async(fuente,lm)=>safe(async()=>{
+    const r=await db.insert("ftr_wa_inbounds",{fecha:hoy(), fuente, lead_magnet:lm||null});
+    S.wa.push(r); m.remove(); render();
+    toast(`+1 Inbound WhatsApp (${lm||fuente})`, async()=>{ await db.del("ftr_wa_inbounds",r.id); S.wa=S.wa.filter(x=>x.id!==r.id); render(); });
+  });
+  m.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{
+    if(b.dataset.f==="Lead Magnet"){ m.querySelector(".choice").style.display="none"; m.querySelector("#lmSel").style.display="block"; m.querySelector("p").textContent="Lead Magnet"; }
+    else guardar(b.dataset.f);
+  });
+  m.querySelectorAll("[data-lm]").forEach(b=>b.onclick=()=>guardar("Lead Magnet", b.dataset.lm));
+}
+
+function modalLlamada(c, pref={}){
+  const nuevo=!c; c=c||{canal:"Instagram", origen:"Inbound", fecha_agendada:hoy(), estado:"Agendada", ...pref};
+  const lmOpts=[...new Set([...lmActivos(), c.lead_magnet].filter(Boolean))];
+  const m=modal(`<h3>${nuevo?"Nueva llamada agendada":"Editar llamada"}</h3>
+    ${c.revisar?'<div class="card" style="background:var(--amar-s);margin:8px 0">Ficha migrada del pipeline antiguo: revisa fechas, origen o lead magnet y desmarca "Revisar".</div>':""}
+    <label>Nombre</label><input id="f_nombre" value="${esc(c.nombre)}">
+    <label>@usuario o teléfono</label><input id="f_contacto" value="${esc(c.contacto)}">
+    <label>Canal</label><div class="seg" id="f_canal">${["Instagram","WhatsApp"].map(x=>`<button data-v="${x}" class="${c.canal===x?"on":""}">${x}</button>`).join("")}</div>
+    <div id="w_origen"><label>Origen</label><div class="seg" id="f_origen">${ORIGENES.map(x=>`<button data-v="${x}" class="${c.origen===x?"on":""}">${x}</button>`).join("")}</div></div>
+    <div id="w_fuente"><label>Fuente (WhatsApp)</label><div class="seg" id="f_fuente">${["Link bio","Lead Magnet","Referido"].map(x=>`<button data-v="${x}" class="${c.fuente===x?"on":""}">${x}</button>`).join("")}</div></div>
+    <div id="w_ref"><label><input type="checkbox" id="f_ref" style="width:auto" ${c.fuente==="Referido"?"checked":""}> Viene referido por un cliente</label></div>
+    <div id="w_lm"><label>¿Qué lead magnet?</label><select id="f_lm"><option value="">—</option>${lmOpts.map(n=>`<option ${c.lead_magnet===n?"selected":""}>${esc(n)}</option>`).join("")}${c.lead_magnet==="Sin dato"?'<option selected>Sin dato</option>':""}</select></div>
+    <div class="grid2"><div><label>Día que agenda</label><input type="date" id="f_fa" value="${esc(c.fecha_agendada)}"></div>
+      <div><label>Día de la llamada</label><input type="date" id="f_fl" value="${esc(c.fecha_llamada)}"></div></div>
+    ${nuevo?"":`<label>Estado</label><select id="f_estado">${ESTADOS.map(x=>`<option ${c.estado===x?"selected":""}>${x}</option>`).join("")}</select>
+      <div id="w_cierre"><div class="grid2"><div><label>Plan</label><select id="f_plan"><option value="">—</option>${[...new Set([...PLANES.map(p=>p.n), c.plan].filter(Boolean))].map(p=>`<option ${c.plan===p?"selected":""}>${esc(p)}</option>`).join("")}</select></div>
+        <div><label>Fecha de cierre</label><input type="date" id="f_fc" value="${esc(c.fecha_cierre)}"></div></div>
+        <div class="grid2"><div><label>Contratado (€)</label><input type="number" step="0.01" id="f_con" value="${esc(c.contratado||0)}"></div>
+        <div><label>Recaudado (€)</label><input type="number" step="0.01" id="f_rec" value="${esc(c.recaudado||0)}"></div></div></div>
+      <label>Motivo (si no cierra / cancela)</label><input id="f_mot" value="${esc(c.motivo)}">
+      ${c.revisar?`<label><input type="checkbox" id="f_rev" style="width:auto" checked> Revisar</label>`:""}`}
+    <label>Observaciones</label><textarea id="f_obs">${esc(c.observaciones)}</textarea>
+    <div class="row" style="margin-top:14px"><button class="btn" id="f_save">Guardar</button><button class="btn sec" data-close>Cancelar</button>
+      <span class="grow"></span>${nuevo?"":'<button class="btn sm ko" id="f_del">Borrar</button>'}</div>`);
+  const seg=(id)=>{ const el=m.querySelector("#"+id); el.querySelectorAll("button").forEach(b=>b.onclick=()=>{ el.querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); sync(); }); };
+  const val=(id)=>m.querySelector(`#${id} .on`)?.dataset.v;
+  const sync=()=>{
+    const canal=val("f_canal"), origen=val("f_origen"), fuente=val("f_fuente");
+    m.querySelector("#w_origen").style.display = canal==="WhatsApp"?"none":"";
+    m.querySelector("#w_fuente").style.display = canal==="WhatsApp"?"":"none";
+    m.querySelector("#w_ref").style.display = canal==="Instagram"?"":"none";
+    m.querySelector("#w_lm").style.display = (canal==="Instagram"&&origen==="Lead Magnet")||(canal==="WhatsApp"&&fuente==="Lead Magnet")?"":"none";
+    const est=m.querySelector("#f_estado"); if(est) m.querySelector("#w_cierre").style.display = est.value==="Cerrada"?"":"none";
+  };
+  seg("f_canal"); seg("f_origen"); seg("f_fuente");
+  if(m.querySelector("#f_estado")) m.querySelector("#f_estado").onchange=sync;
+  if(m.querySelector("#f_plan")) m.querySelector("#f_plan").onchange=e=>{ const p=PLANES.find(x=>x.n===e.target.value); if(p&&p.p&&!+m.querySelector("#f_con").value) m.querySelector("#f_con").value=p.p; };
+  sync();
+  m.querySelector("[data-close]").onclick=()=>m.remove();
+  m.querySelector("#f_save").onclick=()=>safe(async()=>{
+    const canal=val("f_canal");
+    const row={
+      nombre:m.querySelector("#f_nombre").value.trim()||"Sin nombre",
+      contacto:m.querySelector("#f_contacto").value.trim()||null,
+      canal,
+      origen: canal==="WhatsApp" ? "Inbound" : val("f_origen"),
+      fuente: canal==="WhatsApp" ? (val("f_fuente")||"Sin dato") : (m.querySelector("#f_ref").checked?"Referido":null),
+      fecha_agendada:m.querySelector("#f_fa").value||hoy(),
+      fecha_llamada:m.querySelector("#f_fl").value||null,
+      observaciones:m.querySelector("#f_obs").value.trim()||null
+    };
+    const usaLM = (canal==="Instagram"&&row.origen==="Lead Magnet")||(canal==="WhatsApp"&&row.fuente==="Lead Magnet");
+    row.lead_magnet = usaLM ? (m.querySelector("#f_lm").value||null) : null;
+    if(!nuevo){
+      row.estado=m.querySelector("#f_estado").value;
+      row.motivo=m.querySelector("#f_mot").value.trim()||null;
+      if(row.estado==="Cerrada"){
+        row.plan=m.querySelector("#f_plan").value||null; row.fecha_cierre=m.querySelector("#f_fc").value||row.fecha_llamada||hoy();
+        row.contratado=+m.querySelector("#f_con").value||0; row.recaudado=+m.querySelector("#f_rec").value||0;
+      } else if(row.estado!=="No cerrada"){ row.plan=null; row.contratado=0; row.recaudado=0; }
+      if(m.querySelector("#f_rev")) row.revisar=m.querySelector("#f_rev").checked;
+      Object.assign(c, await db.update("ftr_llamadas",c.id,row));
+    } else {
+      row.estado="Agendada";
+      const r=await db.insert("ftr_llamadas",row); S.llamadas.push(r);
+      if(pref._histId){ const h=S.historico.find(x=>x.id===pref._histId); if(h){ Object.assign(h, await db.update("ftr_historico",h.id,{recontactado:true})); } }
+    }
+    m.remove(); render(); toast(nuevo?"Llamada registrada ✅":"Guardado");
+  });
+  if(m.querySelector("#f_del")) m.querySelector("#f_del").onclick=()=>safe(async()=>{
+    if(!confirm(`¿Borrar la ficha de ${c.nombre}? No se puede deshacer.`)) return;
+    await db.del("ftr_llamadas",c.id); S.llamadas=S.llamadas.filter(x=>x.id!==c.id); m.remove(); render(); toast("Ficha borrada");
+  });
+}
+
+function modalCerrar(c){
+  const m=modal(`<h3>🎉 Cerrada: ${esc(c.nombre)}</h3>
+    <label>Plan</label><div class="choice" id="pl">${PLANES.map(p=>`<button data-p="${esc(p.n)}" data-v="${p.p}">${esc(p.n)}${p.p?` · ${eur(p.p)}`:""}</button>`).join("")}</div>
+    <div id="det" style="display:none">
+      <div class="grid2"><div><label>Contratado (€)</label><input type="number" step="0.01" id="c_con"></div>
+      <div><label>Recaudado hoy (€)</label><input type="number" step="0.01" id="c_rec"></div></div>
+      <p class="muted">Recaudado = lo que te ha pagado ya (si paga a plazos, solo el primer pago).</p>
+      <label>Fecha de cierre</label><input type="date" id="c_f" value="${hoy()}">
+      <div class="row" style="margin-top:14px"><button class="btn ok" id="c_ok">Guardar cierre</button><button class="btn sec" data-close>Cancelar</button></div>
+    </div>`);
+  let plan=null;
+  m.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{ plan=b.dataset.p; m.querySelector("#pl").style.display="none"; m.querySelector("#det").style.display="block";
+    m.querySelector("#c_con").value=+b.dataset.v||""; m.querySelector("#c_rec").value=+b.dataset.v||""; m.querySelector("h3").textContent="🎉 "+c.nombre+" · "+plan; });
+  m.addEventListener("click",e=>{ if(e.target.matches("[data-close]")) m.remove(); });
+  m.querySelector("#c_ok").onclick=()=>safe(async()=>{
+    const patch={estado:"Cerrada", plan, contratado:+m.querySelector("#c_con").value||0, recaudado:+m.querySelector("#c_rec").value||0,
+      fecha_cierre:m.querySelector("#c_f").value||hoy(), fecha_llamada:c.fecha_llamada||hoy(), motivo:null};
+    Object.assign(c, await db.update("ftr_llamadas",c.id,patch)); m.remove(); render(); toast("Venta registrada 💪");
+  });
+}
+
+function modalNoCerrar(c){
+  const m=modal(`<h3>No cerrada: ${esc(c.nombre)}</h3><label>Motivo</label>
+    <div class="choice">${MOTIVOS.map(x=>`<button data-m="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+    <label>Detalle (opcional)</label><input id="n_det">
+    <div style="margin-top:12px"><button class="btn sec" data-close>Cancelar</button></div>`);
+  m.querySelector("[data-close]").onclick=()=>m.remove();
+  m.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>safe(async()=>{
+    const det=m.querySelector("#n_det").value.trim();
+    const patch={estado:"No cerrada", motivo: det?`${b.dataset.m}: ${det}`:b.dataset.m, fecha_cierre:hoy(), fecha_llamada:c.fecha_llamada||hoy(), plan:null, contratado:0, recaudado:0};
+    Object.assign(c, await db.update("ftr_llamadas",c.id,patch)); m.remove(); render(); toast("Guardado");
+  }));
+}
+
+/* ---------- LLAMADAS ---------- */
+function renderLlamadas(){
+  const f=S.filtro, q=f.q.toLowerCase();
+  let list=S.llamadas.filter(c=>
+    (!q || (c.nombre+" "+(c.contacto||"")+" "+(c.observaciones||"")).toLowerCase().includes(q)) &&
+    (!f.estado || (f.estado==="__rev"?c.revisar:c.estado===f.estado)) &&
+    (!f.mes || mesDe(c.fecha_agendada)===f.mes));
+  list.sort((a,b)=>(b.fecha_agendada||"").localeCompare(a.fecha_agendada||""));
+  $("#main").innerHTML=`
+    <div class="row"><input class="grow" id="q" placeholder="Buscar nombre, @usuario, teléfono…" value="${esc(f.q)}" style="min-width:200px"></div>
+    <div class="grid2" style="margin-top:8px">
+      <select id="fe"><option value="">Todos los estados</option>${ESTADOS.map(x=>`<option ${f.estado===x?"selected":""}>${x}</option>`).join("")}<option value="__rev" ${f.estado==="__rev"?"selected":""}>⚠️ A revisar</option></select>
+      <select id="fm"><option value="">Todos los meses</option>${mesesDisponibles().map(x=>`<option value="${x}" ${f.mes===x?"selected":""}>${NOMBRE_MES(x)}</option>`).join("")}</select>
+    </div>
+    <p class="muted">${list.length} llamadas</p>
+    <div id="lst">${list.map(c=>callCard(c, ["Agendada","Realizada"].includes(c.estado))).join("")||'<div class="empty">Sin resultados</div>'}</div>`;
+  $("#q").oninput=e=>{ S.filtro.q=e.target.value; const pos=e.target.selectionStart; renderLlamadas(); const i=$("#q"); i.focus(); i.setSelectionRange(pos,pos); };
+  $("#fe").onchange=e=>{S.filtro.estado=e.target.value; renderLlamadas();};
+  $("#fm").onchange=e=>{S.filtro.mes=e.target.value; renderLlamadas();};
+  bindCallActions($("#lst"));
+}
+
+/* ---------- RESUMEN ---------- */
+function filaTabla(rows){ return `<table>${rows.map(([k,v,cls])=>`<tr class="${cls||""}"><td>${k}</td><td>${v}</td></tr>`).join("")}</table>`; }
+
+function renderResumen(){
+  const meses=mesesDisponibles();
+  if(!S.periodo.valor || (S.periodo.tipo==="mes" && !meses.includes(S.periodo.valor))) S.periodo={tipo:"mes", valor:meses[0]};
+  const P=mesesDelPeriodo(), r=calcular(P);
+  const esMes=S.periodo.tipo==="mes";
+  const tm=S.meses.find(x=>x.mes===P[0])||{};
+  // desglose por lead magnet
+  const lmMap={};
+  const addLM=(n,k,v=1)=>{ n=n||"Sin dato"; lmMap[n]=lmMap[n]||{wa:0,ag:0,cer:0,rec:0}; lmMap[n][k]+=v; };
+  r.wa.filter(w=>w.fuente==="Lead Magnet").forEach(w=>addLM(w.lead_magnet,"wa"));
+  r.ag.filter(c=>c.lead_magnet).forEach(c=>addLM(c.lead_magnet,"ag"));
+  r.cerradasList.filter(c=>c.lead_magnet).forEach(c=>{addLM(c.lead_magnet,"cer"); addLM(c.lead_magnet,"rec",+c.recaudado||0);});
+  const waF={"Link bio":0,"Lead Magnet":0,"Referido":0,"Sin dato":0}; r.wa.forEach(w=>waF[w.fuente]=(waF[w.fuente]||0)+1);
+  const motivos={}; S.llamadas.filter(c=>c.estado==="No cerrada" && P.includes(mesDe(c.fecha_cierre||c.fecha_llamada))).forEach(c=>{const k=(c.motivo||"Sin motivo").split(":")[0]; motivos[k]=(motivos[k]||0)+1;});
+
+  $("#main").innerHTML=`
+    <div class="seg" id="tipo"><button data-v="mes" class="${esMes?"on":""}">Mes</button><button data-v="tri" class="${!esMes?"on":""}">Trimestre</button></div>
+    <select id="per" style="margin-top:8px">${(esMes?meses:trimestres()).map(x=>`<option value="${x}" ${S.periodo.valor===x?"selected":""}>${esMes?NOMBRE_MES(x):x.replace("-T"," · T")}</option>`).join("")}</select>
+
+    ${esMes?`<div class="card" style="margin-top:12px">
+      <b>Datos del mes que se meten a mano</b>
+      <p class="muted" style="margin:4px 0 0">Instagram: los saca Claude de las conversaciones exportadas del setter. Renovaciones: del CRM.</p>
+      <div class="grid3"><div><label>Outbound IG (bienvenidas)</label><input type="number" id="t_out" value="${tm.ig_outbound||0}"></div>
+        <div><label>Inbound IG</label><input type="number" id="t_in" value="${tm.ig_inbound||0}"></div>
+        <div><label>Lead Magnet IG</label><input type="number" id="t_lm" value="${tm.ig_lm||0}"></div></div>
+      <div class="grid2"><div><label>Recaudado renovaciones (€)</label><input type="number" step="0.01" id="t_rr" value="${tm.recaudado_r||0}"></div>
+        <div><label>Contratado renovaciones (€)</label><input type="number" step="0.01" id="t_cr" value="${tm.contratado_r||0}"></div></div>
+      <div style="margin-top:10px"><button class="btn sm" id="t_save">Guardar datos del mes</button></div></div>`
+      :`<p class="muted">Vista de trimestre: suma de los 3 meses. Los datos manuales se editan mes a mes.</p>`}
+
+    <h2>Para la academia</h2>
+    <div class="blk"><div class="hd conv">CONVERSACIONES</div>${filaTabla([
+      ["Outbound", r.outbound],["Agendadas Outbound", r.agOut],["% Inducción Outbound", pct(r.agOut,r.outbound),"pct"],
+      [`Inbound <span class="muted">(IG ${r.inboundIG} + WA ${r.inboundWA})</span>`, r.inbound],["Agendadas Inbound", r.agIn],["% Inducción Inbound", pct(r.agIn,r.inbound),"pct"]])}</div>
+    <div class="blk"><div class="hd lm">LEAD MAGNET</div>${filaTabla([
+      ["Lead Magnet (IG)", r.lm],["Agendadas Lead Magnet", r.agLM],["% Inducción Lead Magnet", pct(r.agLM,r.lm),"pct"]])}</div>
+    <div class="blk"><div class="hd vent">VENTAS</div>${filaTabla([
+      ["Agendadas", r.agendadas],["Realizadas", r.realizadas],["% Show up", pct(r.realizadas,r.agendadas),"pct"],
+      ["Cerradas (= altas programa)", r.cerradas],["% Cierre", pct(r.cerradas,r.realizadas),"pct"]])}</div>
+    <div class="blk"><div class="hd rec">RECAUDACIÓN</div>${filaTabla([
+      ["Recaudado", eur(r.recaudado)],["Contratado", eur(r.contratado)],["Recaudado R", eur(r.recaudadoR)],["Contratado R", eur(r.contratadoR)],
+      ["<b>Total Recaudado</b>", eur(r.totalRecaudado)],["<b>Total Contratado</b>", eur(r.totalContratado)]])}</div>
+    <div class="row"><button class="btn nar" id="cp1">Copiar columna para el Excel</button><button class="btn sec" id="cp2">Copiar Lead Magnet</button></div>
+    <p class="muted">Se copia en el mismo orden que tu hoja (Outbound → Total Contratado). Pega en la primera celda de la columna del mes.</p>
+
+    <h2>Solo para ti</h2>
+    <div class="grid2">
+      <div class="card"><b>Inbound WhatsApp por fuente</b>${filaTabla(Object.entries(waF).filter(([k,v])=>v||k!=="Sin dato").map(([k,v])=>[k,v]))}</div>
+      <div class="card"><b>Motivos de no cierre</b>${Object.keys(motivos).length?filaTabla(Object.entries(motivos).sort((a,b)=>b[1]-a[1])):'<p class="muted">Ninguno</p>'}</div>
+    </div>
+    <div class="card"><b>Por lead magnet</b> <span class="muted">(IG + WA)</span>
+      ${Object.keys(lmMap).length?`<table class="tbl"><tr><th>Lead magnet</th><th>Inbound WA</th><th>Agendadas</th><th>Cerradas</th><th>Recaudado</th></tr>
+      ${Object.entries(lmMap).sort((a,b)=>b[1].ag-a[1].ag).map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.wa}</td><td>${v.ag}</td><td>${v.cer}</td><td>${eur(v.rec)}</td></tr>`).join("")}</table>`:'<p class="muted">Sin datos de lead magnets en este periodo</p>'}</div>
+    <div class="grid3">
+      <div class="kpi"><div class="t">No show</div><div class="v">${r.noshow}</div></div>
+      <div class="kpi"><div class="t">Ticket medio</div><div class="v">${r.cerradas?eur(r.contratado/r.cerradas):"—"}</div></div>
+      <div class="kpi"><div class="t">Agendadas → venta</div><div class="v">${pct(r.cerradas,r.agendadas)}</div></div>
+    </div>`;
+  $("#tipo").querySelectorAll("button").forEach(b=>b.onclick=()=>{ S.periodo = b.dataset.v==="mes"?{tipo:"mes",valor:meses[0]}:{tipo:"tri",valor:trimestres()[0]}; renderResumen(); });
+  $("#per").onchange=e=>{S.periodo.valor=e.target.value; renderResumen();};
+  if($("#t_save")) $("#t_save").onclick=()=>safe(async()=>{
+    const row={mes:P[0], ig_outbound:+$("#t_out").value||0, ig_inbound:+$("#t_in").value||0, ig_lm:+$("#t_lm").value||0,
+      recaudado_r:+$("#t_rr").value||0, contratado_r:+$("#t_cr").value||0, updated_at:new Date().toISOString()};
+    const saved=await db.upsert("ftr_totales_mes",row);
+    const i=S.meses.findIndex(x=>x.mes===row.mes); if(i>=0) S.meses[i]={...S.meses[i],...saved}; else S.meses.push(saved);
+    renderResumen(); toast("Datos del mes guardados");
+  });
+  const num=v=>String(v).replace(".",",");
+  const copy=async(vals,msg)=>{ try{ await navigator.clipboard.writeText(vals.join("\n")); toast(msg);}catch(e){ prompt("Copia esto:", vals.join("\n")); } };
+  $("#cp1").onclick=()=>copy([r.outbound,r.agOut,num(pctNum(r.agOut,r.outbound))+"%",r.inbound,r.agIn,num(pctNum(r.agIn,r.inbound))+"%",
+    r.agendadas,r.realizadas,num(pctNum(r.realizadas,r.agendadas))+"%",r.cerradas,num(pctNum(r.cerradas,r.realizadas))+"%",
+    num(r.recaudado),num(r.contratado),num(r.recaudadoR),num(r.contratadoR),num(r.totalRecaudado),num(r.totalContratado)],"Columna copiada ✅");
+  $("#cp2").onclick=()=>copy([r.lm,r.agLM,num(pctNum(r.agLM,r.lm))+"%"],"Lead Magnet copiado ✅");
+}
+
+/* ---------- HISTÓRICO ---------- */
+function renderHistorico(){
+  const q=S.histQ.toLowerCase();
+  const list=S.historico.filter(h=>!q||((h.nombre||"")+" "+(h.contacto||"")+" "+(h.observaciones||"")+" "+(h.etapa||"")).toLowerCase().includes(q))
+    .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  $("#main").innerHTML=`
+    <p class="muted" style="margin-top:0">Leads que no llegaron a agendar. Úsalo para recontactar en lanzamientos. Si alguno agenda, pulsa "Agendó" y se crea su ficha.</p>
+    <div class="row"><input class="grow" id="hq" placeholder="Buscar…" value="${esc(S.histQ)}"><button class="btn sec" id="hadd">+ Añadir</button></div>
+    <p class="muted">${list.length} leads</p>
+    <table class="tbl"><tr><th>Lead</th><th>Etapa</th><th></th></tr>
+    ${list.slice(0,300).map(h=>`<tr><td><b>${esc(h.nombre)}</b><br><span class="muted">${esc(h.contacto||"")} · ${esc(h.canal||"")} · ${h.fecha?fmtF(h.fecha):""}</span>${h.observaciones?`<br><span class="muted">${esc(h.observaciones)}</span>`:""}</td>
+      <td><span class="pill">${esc(h.etapa||"")}</span>${h.recontactado?'<br><span class="pill Cerrada" style="margin-top:4px">Recontactado</span>':""}</td>
+      <td style="text-align:right;white-space:nowrap"><button class="btn sm" data-h="${h.id}">Agendó</button> <button class="btn sm sec" data-rc="${h.id}">${h.recontactado?"↺":"✓ Contactado"}</button></td></tr>`).join("")}</table>`;
+  $("#hq").oninput=e=>{ S.histQ=e.target.value; const pos=e.target.selectionStart; renderHistorico(); const i=$("#hq"); i.focus(); i.setSelectionRange(pos,pos); };
+  $("#hadd").onclick=()=>{
+    const m=modal(`<h3>Añadir al histórico</h3><label>Nombre</label><input id="a_n"><label>@usuario o teléfono</label><input id="a_c">
+      <label>Canal</label><select id="a_ca"><option>Instagram</option><option>WhatsApp</option></select>
+      <label>Etapa</label><select id="a_e"><option>Sin respuesta</option><option>No cualifica</option><option>Más adelante</option></select>
+      <label>Notas</label><textarea id="a_o"></textarea>
+      <div class="row" style="margin-top:12px"><button class="btn" id="a_ok">Guardar</button><button class="btn sec" data-close>Cancelar</button></div>`);
+    m.querySelector("[data-close]").onclick=()=>m.remove();
+    m.querySelector("#a_ok").onclick=()=>safe(async()=>{
+      const r=await db.insert("ftr_historico",{nombre:m.querySelector("#a_n").value.trim(),contacto:m.querySelector("#a_c").value.trim()||null,canal:m.querySelector("#a_ca").value,etapa:m.querySelector("#a_e").value,fecha:hoy(),observaciones:m.querySelector("#a_o").value.trim()||null});
+      S.historico.push(r); m.remove(); renderHistorico();
+    });
+  };
+  document.querySelectorAll("[data-h]").forEach(b=>b.onclick=()=>{ const h=S.historico.find(x=>x.id===b.dataset.h);
+    modalLlamada(null,{nombre:h.nombre, contacto:h.contacto, canal:h.canal==="WhatsApp"?"WhatsApp":"Instagram", observaciones:h.observaciones, _histId:h.id}); });
+  document.querySelectorAll("[data-rc]").forEach(b=>b.onclick=()=>safe(async()=>{ const h=S.historico.find(x=>x.id===b.dataset.rc);
+    Object.assign(h, await db.update("ftr_historico",h.id,{recontactado:!h.recontactado})); renderHistorico(); }));
+}
+
+/* ---------- AJUSTES ---------- */
+function renderAjustes(){
+  $("#main").innerHTML=`
+    <h2>Lead magnets</h2>
+    <div class="card">${S.lms.map(l=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--borde)"><span class="grow" style="${l.activo?"":"opacity:.45;text-decoration:line-through"}">${esc(l.nombre)}</span>
+      <button class="btn sm sec" data-lmt="${esc(l.nombre)}">${l.activo?"Ocultar":"Activar"}</button></div>`).join("")}
+      <div class="row" style="margin-top:10px"><input class="grow" id="nlm" placeholder="Nuevo lead magnet"><button class="btn sm" id="alm">Añadir</button></div></div>
+    <h2>Cuenta</h2>
+    <div class="card"><span class="muted">${DEMO?"Modo demo (los datos no se guardan)":"Sesión: "+esc(S.user?.email||"")}</span><br><br>
+      ${DEMO?"":'<button class="btn sec" id="out">Cerrar sesión</button>'}</div>`;
+  document.querySelectorAll("[data-lmt]").forEach(b=>b.onclick=()=>safe(async()=>{ const l=S.lms.find(x=>x.nombre===b.dataset.lmt); Object.assign(l, await db.update("ftr_lead_magnets",l.nombre,{activo:!l.activo})); renderAjustes(); }));
+  $("#alm").onclick=()=>safe(async()=>{ const n=$("#nlm").value.trim(); if(!n||S.lms.some(x=>x.nombre===n)) return;
+    const otro=S.lms.find(x=>x.nombre==="Otro"); const orden=otro?otro.orden-1:S.lms.length;
+    S.lms.push(await db.insert("ftr_lead_magnets",{nombre:n,activo:true,orden})); S.lms.sort((a,b)=>a.orden-b.orden); renderAjustes(); toast("Lead magnet añadido"); });
+  if($("#out")) $("#out").onclick=async()=>{ await sb.auth.signOut(); S.user=null; render(); };
+}
+
+/* =================== ARRANQUE =================== */
+async function start(){
+  $("#app").innerHTML='<div class="empty" style="margin-top:30vh">Cargando…</div>';
+  try{ await loadAll(); render(); }
+  catch(e){ console.error(e); $("#app").innerHTML=`<div class="login card"><b>No se han podido cargar los datos</b><p class="muted">${esc(e.message||e)}</p><p class="muted">¿Has ejecutado el script SQL en Supabase?</p><button class="btn" onclick="location.reload()">Reintentar</button></div>`; }
+}
+(async()=>{
+  if(DEMO){
+    const t=hoy(), m=mesActual(), d=n=>{const x=new Date(); x.setDate(x.getDate()+n); return x.toLocaleDateString("sv-SE");};
+    demoDB.ftr_llamadas=[
+      {id:"a1",nombre:"Laura Demo",contacto:"@laura",canal:"Instagram",origen:"Inbound",fuente:null,lead_magnet:null,fecha_agendada:d(-3),fecha_llamada:d(-1),estado:"Agendada",contratado:0,recaudado:0,revisar:false},
+      {id:"a2",nombre:"Pedro Demo",contacto:"+34 600",canal:"WhatsApp",origen:"Inbound",fuente:"Lead Magnet",lead_magnet:"Guía 21K",fecha_agendada:d(-2),fecha_llamada:d(2),estado:"Agendada",contratado:0,recaudado:0,revisar:false},
+      {id:"a3",nombre:"Ana Demo",contacto:"@ana",canal:"Instagram",origen:"Lead Magnet",fuente:null,lead_magnet:"Test del corredor",fecha_agendada:d(-5),fecha_llamada:d(-4),estado:"Cerrada",plan:"6 meses",contratado:697,recaudado:697,fecha_cierre:d(-4),revisar:false},
+      {id:"a4",nombre:"Migrado Demo",contacto:"@mig",canal:"Instagram",origen:"Outbound",fuente:null,lead_magnet:null,fecha_agendada:d(-6),fecha_llamada:d(-5),estado:"No cerrada",motivo:"Dinero",fecha_cierre:d(-5),contratado:0,recaudado:0,revisar:true}];
+    demoDB.ftr_wa_inbounds=[{id:1,fecha:t,fuente:"Link bio"},{id:2,fecha:t,fuente:"Lead Magnet",lead_magnet:"Guía 21K"},{id:3,fecha:d(-1),fuente:"Referido"}];
+    demoDB.ftr_totales_mes=[{mes:m,ig_inbound:10,ig_outbound:300,ig_lm:20,recaudado_r:1200,contratado_r:1394}];
+    demoDB.ftr_historico=[{id:"h1",nombre:"Lead antiguo",contacto:"@antiguo",canal:"Instagram",fuente:"Inbound DM",etapa:"Sin respuesta",fecha:d(-40),recontactado:false}];
+    return start();
+  }
+  if(!sb){ $("#app").innerHTML='<div class="empty">No se ha podido cargar Supabase. Revisa la conexión.</div>'; return; }
+  const {data} = await sb.auth.getSession();
+  if(data.session){ S.user=data.session.user; await start(); } else render();
+})();
+</script>
+</body>
+</html>
