@@ -69,7 +69,7 @@ textarea{min-height:60px}
 .hd.conv{background:#2f6b3a}.hd.vent{background:#24467a}.hd.rec{background:#6a1f3a}.hd.lm{background:var(--naranja)}.hd.prop{background:#3d5a80}
 .tbl{width:100%;border-collapse:collapse;font-size:14px}
 .tbl th{text-align:left;color:var(--suave);font-weight:600;font-size:12px;padding:6px 8px}
-.tbl td{padding:7px 8px;border-top:1px solid var(--borde)}
+.tbl td{padding:7px 8px;border-top:1px solid var(--borde);word-break:break-word}
 .modal-bg{position:fixed;inset:0;background:rgba(15,25,40,.45);display:flex;align-items:flex-end;justify-content:center;z-index:20}
 .modal{background:#fff;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px;max-height:92vh;overflow:auto}
 @media(min-width:600px){.modal-bg{align-items:center}.modal{border-radius:18px}}
@@ -178,7 +178,7 @@ async function safe(fn){ try{ await fn(); } catch(e){ console.error(e); alert("N
 
 function mesesDisponibles(){
   const set=new Set([mesActual()]);
-  S.llamadas.forEach(c=>{ set.add(mesDe(c.fecha_agendada)); if(c.fecha_cierre) set.add(mesDe(c.fecha_cierre)); });
+  S.llamadas.forEach(c=>{ set.add(mesDe(c.fecha_agendada)); if(c.fecha_llamada) set.add(mesDe(c.fecha_llamada)); if(c.fecha_cierre) set.add(mesDe(c.fecha_cierre)); });
   S.wa.forEach(w=>set.add(mesDe(w.fecha))); S.meses.forEach(m=>set.add(m.mes));
   return [...set].filter(Boolean).sort().reverse();
 }
@@ -201,7 +201,9 @@ function calcular(meses){
   const wa = S.wa.filter(w=>inP(w.fecha));
   const ag = S.llamadas.filter(c=>inP(c.fecha_agendada));
   const agO = o => ag.filter(c=>c.origen===o).length;
-  const realizadas = S.llamadas.filter(c=>["Realizada","Cerrada","No cerrada"].includes(c.estado) && inP(c.fecha_llamada || c.fecha_agendada));
+  // Llamadas cuya videollamada cae en el periodo (aunque se agendaran el mes anterior)
+  const delPeriodo = S.llamadas.filter(c=>c.estado!=="Cancelada" && inP(c.fecha_llamada || c.fecha_agendada));
+  const realizadas = delPeriodo.filter(c=>["Realizada","Cerrada","No cerrada"].includes(c.estado));
   const cerradas = S.llamadas.filter(c=>c.estado==="Cerrada" && inP(c.fecha_cierre || c.fecha_llamada));
   const inboundTot = tot.ig_inbound + wa.length;
   const r = {
@@ -209,7 +211,10 @@ function calcular(meses){
     inbound: inboundTot, inboundIG: tot.ig_inbound, inboundWA: wa.length, agIn: agO("Inbound"),
     lm: tot.ig_lm, agLM: agO("Lead Magnet"),
     agendadas: ag.length, realizadas: realizadas.length, cerradas: cerradas.length,
-    noshow: S.llamadas.filter(c=>c.estado==="No show" && inP(c.fecha_llamada||c.fecha_agendada)).length,
+    noshow: delPeriodo.filter(c=>c.estado==="No show").length,
+    pendientes: delPeriodo.filter(c=>c.estado==="Agendada").length,
+    cerradasPeriodo: delPeriodo.filter(c=>c.estado==="Cerrada").length,
+    llamadasPeriodo: delPeriodo.length,
     recaudado: cerradas.reduce((s,c)=>s+(+c.recaudado||0),0),
     contratado: cerradas.reduce((s,c)=>s+(+c.contratado||0),0),
     recaudadoR: tot.recaudado_r, contratadoR: tot.contratado_r,
@@ -355,7 +360,7 @@ function modalLlamada(c, pref={}){
     <div id="w_origen"><label>Origen</label><div class="seg" id="f_origen">${ORIGENES.map(x=>`<button data-v="${x}" class="${c.origen===x?"on":""}">${x}</button>`).join("")}</div></div>
     <div id="w_fuente"><label>Fuente (WhatsApp)</label><div class="seg" id="f_fuente">${["Link bio","Lead Magnet","Referido"].map(x=>`<button data-v="${x}" class="${c.fuente===x?"on":""}">${x}</button>`).join("")}</div></div>
     <div id="w_ref"><label><input type="checkbox" id="f_ref" style="width:auto" ${c.fuente==="Referido"?"checked":""}> Viene referido por un cliente</label></div>
-    <div id="w_lm"><label>¿Qué lead magnet?</label><select id="f_lm"><option value="">—</option>${lmOpts.map(n=>`<option ${c.lead_magnet===n?"selected":""}>${esc(n)}</option>`).join("")}${c.lead_magnet==="Sin dato"?'<option selected>Sin dato</option>':""}</select></div>
+    <div id="w_lm"><label>¿Qué lead magnet?</label><select id="f_lm"><option value="">—</option>${lmOpts.map(n=>`<option ${c.lead_magnet===n?"selected":""}>${esc(n)}</option>`).join("")}</select></div>
     <div class="grid2"><div><label>Día que agenda</label><input type="date" id="f_fa" value="${esc(c.fecha_agendada)}"></div>
       <div><label>Día de la llamada</label><input type="date" id="f_fl" value="${esc(c.fecha_llamada)}"></div></div>
     ${nuevo?"":`<label>Estado</label><select id="f_estado">${ESTADOS.map(x=>`<option ${c.estado===x?"selected":""}>${x}</option>`).join("")}</select>
@@ -403,7 +408,10 @@ function modalLlamada(c, pref={}){
       if(row.estado==="Cerrada"){
         row.plan=m.querySelector("#f_plan").value||null; row.fecha_cierre=m.querySelector("#f_fc").value||row.fecha_llamada||hoy();
         row.contratado=+m.querySelector("#f_con").value||0; row.recaudado=+m.querySelector("#f_rec").value||0;
-      } else if(row.estado!=="No cerrada"){ row.plan=null; row.contratado=0; row.recaudado=0; }
+      } else {
+        row.plan=null; row.contratado=0; row.recaudado=0;
+        row.fecha_cierre = row.estado==="No cerrada" ? (c.fecha_cierre||row.fecha_llamada||hoy()) : null;
+      }
       if(m.querySelector("#f_rev")) row.revisar=m.querySelector("#f_rev").checked;
       Object.assign(c, await db.update("ftr_llamadas",c.id,row));
     } else {
@@ -522,8 +530,11 @@ function renderResumen(){
       ["<b>Llamadas propuestas totales</b>", r.propuestas],["% Agendadas / propuestas", pct(r.agendadas,r.propuestas),"pct"],
       [`<b>Leads</b> <span class="muted">(inbound + propuestas outbound y LM)</span>`, r.leads],["% Agendadas / leads", pct(r.agendadas,r.leads),"pct"]])}</div>
     <div class="blk"><div class="hd vent">VENTAS</div>${filaTabla([
-      ["Agendadas", r.agendadas],["Realizadas", r.realizadas],["% Show up", pct(r.realizadas,r.agendadas),"pct"],
-      ["Cerradas (= altas programa)", r.cerradas],["% Cierre", pct(r.cerradas,r.realizadas),"pct"]])}</div>
+      ["Agendadas <span class='muted'>(reservadas este periodo)</span>", r.agendadas],
+      ["Llamadas del periodo <span class='muted'>(la videollamada caía en estas fechas)</span>", r.llamadasPeriodo],
+      ["Realizadas", r.realizadas],["No show", r.noshow],...(r.pendientes?[["Pendientes o próximas", r.pendientes]]:[]),
+      ["% Show up <span class='muted'>(realizadas / realizadas + no show)</span>", pct(r.realizadas,r.realizadas+r.noshow),"pct"],
+      ["Cerradas (= altas programa)", r.cerradas],["% Cierre <span class='muted'>(cerradas / realizadas del periodo)</span>", pct(r.cerradasPeriodo,r.realizadas),"pct"]])}</div>
     <div class="blk"><div class="hd rec">RECAUDACIÓN</div>${filaTabla([
       ["Recaudado", eur(r.recaudado)],["Contratado", eur(r.contratado)],["Recaudado R", eur(r.recaudadoR)],["Contratado R", eur(r.contratadoR)],
       ["<b>Total Recaudado</b>", eur(r.totalRecaudado)],["<b>Total Contratado</b>", eur(r.totalContratado)]])}</div>
@@ -539,7 +550,7 @@ function renderResumen(){
       ${Object.keys(lmMap).length?`<div class="scroll"><table class="tbl"><tr><th>Lead magnet</th><th>Inbound WA</th><th>Agendadas</th><th>Cerradas</th><th>Recaudado</th></tr>
       ${Object.entries(lmMap).sort((a,b)=>b[1].ag-a[1].ag).map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.wa}</td><td>${v.ag}</td><td>${v.cer}</td><td>${eur(v.rec)}</td></tr>`).join("")}</table></div>`:'<p class="muted">Sin datos de lead magnets en este periodo</p>'}</div>
     <div class="grid3">
-      <div class="kpi"><div class="t">No show</div><div class="v">${r.noshow}</div></div>
+      <div class="kpi"><div class="t">Llamadas sin resultado</div><div class="v">${r.pendientes}</div></div>
       <div class="kpi"><div class="t">Ticket medio</div><div class="v">${r.cerradas?eur(r.contratado/r.cerradas):"—"}</div></div>
       <div class="kpi"><div class="t">Agendadas → venta</div><div class="v">${pct(r.cerradas,r.agendadas)}</div></div>
     </div>`;
@@ -556,7 +567,7 @@ function renderResumen(){
   const num=v=>String(v).replace(".",",");
   const copy=async(vals,msg)=>{ try{ await navigator.clipboard.writeText(vals.join("\n")); toast(msg);}catch(e){ prompt("Copia esto:", vals.join("\n")); } };
   $("#cp1").onclick=()=>copy([r.outbound,r.agOut,num(pctNum(r.agOut,r.outbound))+"%",r.inbound,r.agIn,num(pctNum(r.agIn,r.inbound))+"%",
-    r.agendadas,r.realizadas,num(pctNum(r.realizadas,r.agendadas))+"%",r.cerradas,num(pctNum(r.cerradas,r.realizadas))+"%",
+    r.agendadas,r.realizadas,num(pctNum(r.realizadas,r.realizadas+r.noshow))+"%",r.cerradas,num(pctNum(r.cerradasPeriodo,r.realizadas))+"%",
     num(r.recaudado),num(r.contratado),num(r.recaudadoR),num(r.contratadoR),num(r.totalRecaudado),num(r.totalContratado)],"Columna copiada ✅");
   $("#cp3").onclick=()=>copy([r.propIn,r.propOut,r.propLM,r.propuestas,num(pctNum(r.agendadas,r.propuestas))+"%",r.leads,num(pctNum(r.agendadas,r.leads))+"%"],"Leads y propuestas copiados ✅");
   $("#cp2").onclick=()=>copy([r.lm,r.agLM,num(pctNum(r.agLM,r.lm))+"%"],"Lead Magnet copiado ✅");
@@ -574,7 +585,7 @@ function renderHistorico(){
     <table class="tbl"><tr><th>Lead</th><th>Etapa</th><th></th></tr>
     ${list.slice(0,300).map(h=>`<tr><td><b>${esc(h.nombre)}</b><br><span class="muted">${esc(h.contacto||"")} · ${esc(h.canal||"")} · ${h.fecha?fmtF(h.fecha):""}</span>${h.observaciones?`<br><span class="muted">${esc(h.observaciones)}</span>`:""}</td>
       <td><span class="pill">${esc(h.etapa||"")}</span>${h.recontactado?'<br><span class="pill Cerrada" style="margin-top:4px">Recontactado</span>':""}</td>
-      <td style="text-align:right;white-space:nowrap"><button class="btn sm" data-h="${h.id}">Agendó</button> <button class="btn sm sec" data-rc="${h.id}">${h.recontactado?"↺":"✓ Contactado"}</button></td></tr>`).join("")}</table>`;
+      <td style="text-align:right"><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><button class="btn sm" data-h="${h.id}">Agendó</button><button class="btn sm sec" style="white-space:nowrap" data-rc="${h.id}">${h.recontactado?"↺ Desmarcar":"✓ Contactado"}</button></div></td></tr>`).join("")}</table>`;
   $("#hq").oninput=e=>{ S.histQ=e.target.value; const pos=e.target.selectionStart; renderHistorico(); const i=$("#hq"); i.focus(); i.setSelectionRange(pos,pos); };
   $("#hadd").onclick=()=>{
     const m=modal(`<h3>Añadir al histórico</h3><label>Nombre</label><input id="a_n"><label>@usuario o teléfono</label><input id="a_c">
@@ -614,7 +625,10 @@ function renderAjustes(){
 /* =================== ARRANQUE =================== */
 async function start(){
   $("#app").innerHTML='<div class="empty" style="margin-top:30vh">Cargando…</div>';
-  try{ await loadAll(); render(); }
+  try{
+    if(!DEMO){ const {data}=await sb.auth.getSession(); if(!data.session){ S.user=null; render(); return; } }
+    await loadAll(); render();
+  }
   catch(e){ console.error(e); $("#app").innerHTML=`<div class="login card"><b>No se han podido cargar los datos</b><p class="muted">${esc(e.message||e)}</p><p class="muted">¿Has ejecutado el script SQL en Supabase?</p><button class="btn" onclick="location.reload()">Reintentar</button></div>`; }
 }
 (async()=>{
@@ -636,6 +650,14 @@ async function start(){
     return start();
   }
   if(!sb){ $("#app").innerHTML='<div class="empty">No se ha podido cargar Supabase. Revisa la conexión.</div>'; return; }
+  // Si la sesión caduca o se cierra, volver al login en vez de mostrar la app vacía
+  sb.auth.onAuthStateChange((ev,session)=>{ if(ev==="SIGNED_OUT" && S.user){ S.user=null; render(); } });
+  // Al volver a la pestaña tras mucho rato, recargar datos (por si los cambiaste desde el móvil)
+  document.addEventListener("visibilitychange", async()=>{
+    if(document.visibilityState!=="visible" || !S.user || document.querySelector(".modal-bg")) return;
+    const {data}=await sb.auth.getSession(); if(!data.session){ S.user=null; render(); return; }
+    try{ await loadAll(); render(); }catch(e){ console.error(e); }
+  });
   const {data} = await sb.auth.getSession();
   if(data.session){ S.user=data.session.user; await start(); } else render();
 })();
