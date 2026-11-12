@@ -49,6 +49,8 @@ h2:first-child{margin-top:4px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 @media(max-width:560px){.grid3{grid-template-columns:1fr}}
+@media(max-width:460px){.grid2.st{grid-template-columns:1fr}}
+.scroll{overflow-x:auto}
 label{display:block;font-size:13px;color:var(--suave);margin:8px 0 4px}
 input,select,textarea{width:100%;padding:10px;border:1px solid var(--borde);border-radius:10px;background:#fff}
 textarea{min-height:60px}
@@ -64,7 +66,7 @@ textarea{min-height:60px}
 .blk td{padding:8px 12px;border-top:1px solid var(--borde)}
 .blk td:last-child{text-align:right;font-weight:600}
 .blk tr.pct td{color:var(--naranja)}
-.hd.conv{background:#2f6b3a}.hd.vent{background:#24467a}.hd.rec{background:#6a1f3a}.hd.lm{background:var(--naranja)}
+.hd.conv{background:#2f6b3a}.hd.vent{background:#24467a}.hd.rec{background:#6a1f3a}.hd.lm{background:var(--naranja)}.hd.prop{background:#3d5a80}
 .tbl{width:100%;border-collapse:collapse;font-size:14px}
 .tbl th{text-align:left;color:var(--suave);font-weight:600;font-size:12px;padding:6px 8px}
 .tbl td{padding:7px 8px;border-top:1px solid var(--borde)}
@@ -194,7 +196,7 @@ function mesesDelPeriodo(){
 /* =================== MÉTRICAS =================== */
 function calcular(meses){
   const inP = d => d && meses.includes(mesDe(d));
-  const tot = {ig_inbound:0, ig_outbound:0, ig_lm:0, recaudado_r:0, contratado_r:0};
+  const tot = {ig_inbound:0, ig_outbound:0, ig_lm:0, recaudado_r:0, contratado_r:0, prop_inbound:0, prop_outbound:0, prop_lm:0};
   S.meses.filter(m=>meses.includes(m.mes)).forEach(m=>Object.keys(tot).forEach(k=>tot[k]+=(+m[k]||0)));
   const wa = S.wa.filter(w=>inP(w.fecha));
   const ag = S.llamadas.filter(c=>inP(c.fecha_agendada));
@@ -211,8 +213,11 @@ function calcular(meses){
     recaudado: cerradas.reduce((s,c)=>s+(+c.recaudado||0),0),
     contratado: cerradas.reduce((s,c)=>s+(+c.contratado||0),0),
     recaudadoR: tot.recaudado_r, contratadoR: tot.contratado_r,
+    propIn: tot.prop_inbound, propOut: tot.prop_outbound, propLM: tot.prop_lm,
     wa, ag, cerradasList: cerradas
   };
+  r.propuestas = r.propIn + r.propOut + r.propLM;
+  r.leads = r.inbound + r.propOut + r.propLM;
   r.totalRecaudado = r.recaudado + r.recaudadoR;
   r.totalContratado = r.contratado + r.contratadoR;
   return r;
@@ -303,7 +308,7 @@ function renderHoy(){
       <div class="kpi"><div class="t">Agendadas este mes</div><div class="v">${agMes}</div></div>
       <div class="kpi"><div class="t">Cerradas este mes</div><div class="v">${cerrMes}</div></div>
     </div>
-    ${rev?`<div class="card" style="background:var(--amar-s);border-color:#f0dfb4;margin-top:10px">⚠️ Hay <b>${rev}</b> fichas del histórico para revisar. <a href="#" id="goRev">Verlas</a></div>`:""}
+    ${rev?`<div class="card" style="background:var(--amar-s);border-color:#f0dfb4;margin-top:10px">⚠️ Hay <b>${rev}</b> ${rev===1?"ficha":"fichas"} del histórico para revisar. <a href="#" id="goRev">Verlas</a></div>`:""}
     <h2>Pendientes de resultado (${pend.length})</h2>
     <div id="pend">${pend.length?pend.map(c=>callCard(c)).join(""):'<div class="empty">Nada pendiente 🙌</div>'}</div>
     <h2>Próximas llamadas (${prox.length})</h2>
@@ -494,10 +499,13 @@ function renderResumen(){
 
     ${esMes?`<div class="card" style="margin-top:12px">
       <b>Datos del mes que se meten a mano</b>
-      <p class="muted" style="margin:4px 0 0">Instagram: los saca Claude de las conversaciones exportadas del setter. Renovaciones: del CRM.</p>
+      <p class="muted" style="margin:4px 0 0">Instagram y propuestas: los saca Claude de las conversaciones exportadas del setter (suma a las propuestas las que hagas tú por WhatsApp). Renovaciones: del CRM.</p>
       <div class="grid3"><div><label>Outbound IG (bienvenidas)</label><input type="number" id="t_out" value="${tm.ig_outbound||0}"></div>
         <div><label>Inbound IG</label><input type="number" id="t_in" value="${tm.ig_inbound||0}"></div>
         <div><label>Lead Magnet IG</label><input type="number" id="t_lm" value="${tm.ig_lm||0}"></div></div>
+      <div class="grid3"><div><label>Propuestas Inbound</label><input type="number" id="t_pi" value="${tm.prop_inbound||0}"></div>
+        <div><label>Propuestas Outbound</label><input type="number" id="t_po" value="${tm.prop_outbound||0}"></div>
+        <div><label>Propuestas Lead Magnet</label><input type="number" id="t_pl" value="${tm.prop_lm||0}"></div></div>
       <div class="grid2"><div><label>Recaudado renovaciones (€)</label><input type="number" step="0.01" id="t_rr" value="${tm.recaudado_r||0}"></div>
         <div><label>Contratado renovaciones (€)</label><input type="number" step="0.01" id="t_cr" value="${tm.contratado_r||0}"></div></div>
       <div style="margin-top:10px"><button class="btn sm" id="t_save">Guardar datos del mes</button></div></div>`
@@ -509,23 +517,27 @@ function renderResumen(){
       [`Inbound <span class="muted">(IG ${r.inboundIG} + WA ${r.inboundWA})</span>`, r.inbound],["Agendadas Inbound", r.agIn],["% Inducción Inbound", pct(r.agIn,r.inbound),"pct"]])}</div>
     <div class="blk"><div class="hd lm">LEAD MAGNET</div>${filaTabla([
       ["Lead Magnet (IG)", r.lm],["Agendadas Lead Magnet", r.agLM],["% Inducción Lead Magnet", pct(r.agLM,r.lm),"pct"]])}</div>
+    <div class="blk"><div class="hd prop">LEADS Y LLAMADAS PROPUESTAS</div>${filaTabla([
+      ["Llamadas propuestas Inbound", r.propIn],["Llamadas propuestas Outbound", r.propOut],["Llamadas propuestas Lead Magnet", r.propLM],
+      ["<b>Llamadas propuestas totales</b>", r.propuestas],["% Agendadas / propuestas", pct(r.agendadas,r.propuestas),"pct"],
+      [`<b>Leads</b> <span class="muted">(inbound + propuestas outbound y LM)</span>`, r.leads],["% Agendadas / leads", pct(r.agendadas,r.leads),"pct"]])}</div>
     <div class="blk"><div class="hd vent">VENTAS</div>${filaTabla([
       ["Agendadas", r.agendadas],["Realizadas", r.realizadas],["% Show up", pct(r.realizadas,r.agendadas),"pct"],
       ["Cerradas (= altas programa)", r.cerradas],["% Cierre", pct(r.cerradas,r.realizadas),"pct"]])}</div>
     <div class="blk"><div class="hd rec">RECAUDACIÓN</div>${filaTabla([
       ["Recaudado", eur(r.recaudado)],["Contratado", eur(r.contratado)],["Recaudado R", eur(r.recaudadoR)],["Contratado R", eur(r.contratadoR)],
       ["<b>Total Recaudado</b>", eur(r.totalRecaudado)],["<b>Total Contratado</b>", eur(r.totalContratado)]])}</div>
-    <div class="row"><button class="btn nar" id="cp1">Copiar columna para el Excel</button><button class="btn sec" id="cp2">Copiar Lead Magnet</button></div>
+    <div class="row"><button class="btn nar" id="cp1">Copiar columna para el Excel</button><button class="btn sec" id="cp2">Copiar Lead Magnet</button><button class="btn sec" id="cp3">Copiar Leads y propuestas</button></div>
     <p class="muted">Se copia en el mismo orden que tu hoja (Outbound → Total Contratado). Pega en la primera celda de la columna del mes.</p>
 
     <h2>Solo para ti</h2>
-    <div class="grid2">
+    <div class="grid2 st">
       <div class="card"><b>Inbound WhatsApp por fuente</b>${filaTabla(Object.entries(waF).filter(([k,v])=>v||k!=="Sin dato").map(([k,v])=>[k,v]))}</div>
       <div class="card"><b>Motivos de no cierre</b>${Object.keys(motivos).length?filaTabla(Object.entries(motivos).sort((a,b)=>b[1]-a[1])):'<p class="muted">Ninguno</p>'}</div>
     </div>
     <div class="card"><b>Por lead magnet</b> <span class="muted">(IG + WA)</span>
-      ${Object.keys(lmMap).length?`<table class="tbl"><tr><th>Lead magnet</th><th>Inbound WA</th><th>Agendadas</th><th>Cerradas</th><th>Recaudado</th></tr>
-      ${Object.entries(lmMap).sort((a,b)=>b[1].ag-a[1].ag).map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.wa}</td><td>${v.ag}</td><td>${v.cer}</td><td>${eur(v.rec)}</td></tr>`).join("")}</table>`:'<p class="muted">Sin datos de lead magnets en este periodo</p>'}</div>
+      ${Object.keys(lmMap).length?`<div class="scroll"><table class="tbl"><tr><th>Lead magnet</th><th>Inbound WA</th><th>Agendadas</th><th>Cerradas</th><th>Recaudado</th></tr>
+      ${Object.entries(lmMap).sort((a,b)=>b[1].ag-a[1].ag).map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.wa}</td><td>${v.ag}</td><td>${v.cer}</td><td>${eur(v.rec)}</td></tr>`).join("")}</table></div>`:'<p class="muted">Sin datos de lead magnets en este periodo</p>'}</div>
     <div class="grid3">
       <div class="kpi"><div class="t">No show</div><div class="v">${r.noshow}</div></div>
       <div class="kpi"><div class="t">Ticket medio</div><div class="v">${r.cerradas?eur(r.contratado/r.cerradas):"—"}</div></div>
@@ -535,7 +547,8 @@ function renderResumen(){
   $("#per").onchange=e=>{S.periodo.valor=e.target.value; renderResumen();};
   if($("#t_save")) $("#t_save").onclick=()=>safe(async()=>{
     const row={mes:P[0], ig_outbound:+$("#t_out").value||0, ig_inbound:+$("#t_in").value||0, ig_lm:+$("#t_lm").value||0,
-      recaudado_r:+$("#t_rr").value||0, contratado_r:+$("#t_cr").value||0, updated_at:new Date().toISOString()};
+      recaudado_r:+$("#t_rr").value||0, contratado_r:+$("#t_cr").value||0,
+      prop_inbound:+$("#t_pi").value||0, prop_outbound:+$("#t_po").value||0, prop_lm:+$("#t_pl").value||0, updated_at:new Date().toISOString()};
     const saved=await db.upsert("ftr_totales_mes",row);
     const i=S.meses.findIndex(x=>x.mes===row.mes); if(i>=0) S.meses[i]={...S.meses[i],...saved}; else S.meses.push(saved);
     renderResumen(); toast("Datos del mes guardados");
@@ -545,6 +558,7 @@ function renderResumen(){
   $("#cp1").onclick=()=>copy([r.outbound,r.agOut,num(pctNum(r.agOut,r.outbound))+"%",r.inbound,r.agIn,num(pctNum(r.agIn,r.inbound))+"%",
     r.agendadas,r.realizadas,num(pctNum(r.realizadas,r.agendadas))+"%",r.cerradas,num(pctNum(r.cerradas,r.realizadas))+"%",
     num(r.recaudado),num(r.contratado),num(r.recaudadoR),num(r.contratadoR),num(r.totalRecaudado),num(r.totalContratado)],"Columna copiada ✅");
+  $("#cp3").onclick=()=>copy([r.propIn,r.propOut,r.propLM,r.propuestas,num(pctNum(r.agendadas,r.propuestas))+"%",r.leads,num(pctNum(r.agendadas,r.leads))+"%"],"Leads y propuestas copiados ✅");
   $("#cp2").onclick=()=>copy([r.lm,r.agLM,num(pctNum(r.agLM,r.lm))+"%"],"Lead Magnet copiado ✅");
 }
 
@@ -612,8 +626,13 @@ async function start(){
       {id:"a3",nombre:"Ana Demo",contacto:"@ana",canal:"Instagram",origen:"Lead Magnet",fuente:null,lead_magnet:"Test del corredor",fecha_agendada:d(-5),fecha_llamada:d(-4),estado:"Cerrada",plan:"6 meses",contratado:697,recaudado:697,fecha_cierre:d(-4),revisar:false},
       {id:"a4",nombre:"Migrado Demo",contacto:"@mig",canal:"Instagram",origen:"Outbound",fuente:null,lead_magnet:null,fecha_agendada:d(-6),fecha_llamada:d(-5),estado:"No cerrada",motivo:"Dinero",fecha_cierre:d(-5),contratado:0,recaudado:0,revisar:true}];
     demoDB.ftr_wa_inbounds=[{id:1,fecha:t,fuente:"Link bio"},{id:2,fecha:t,fuente:"Lead Magnet",lead_magnet:"Guía 21K"},{id:3,fecha:d(-1),fuente:"Referido"}];
-    demoDB.ftr_totales_mes=[{mes:m,ig_inbound:10,ig_outbound:300,ig_lm:20,recaudado_r:1200,contratado_r:1394}];
+    demoDB.ftr_totales_mes=[{mes:m,ig_inbound:10,ig_outbound:300,ig_lm:20,recaudado_r:1200,contratado_r:1394,prop_inbound:9,prop_outbound:6,prop_lm:4}];
     demoDB.ftr_historico=[{id:"h1",nombre:"Lead antiguo",contacto:"@antiguo",canal:"Instagram",fuente:"Inbound DM",etapa:"Sin respuesta",fecha:d(-40),recontactado:false}];
+    demoDB.ftr_llamadas.push(
+      {id:"a5",nombre:"Sergio Demo",contacto:"@sergio_10k",canal:"Instagram",origen:"Inbound",fuente:"Referido",lead_magnet:null,fecha_agendada:d(-1),fecha_llamada:d(1),estado:"Agendada",contratado:0,recaudado:0,revisar:false},
+      {id:"a6",nombre:"Carla Demo",contacto:"+34 611",canal:"WhatsApp",origen:"Inbound",fuente:"Link bio",lead_magnet:null,fecha_agendada:d(-4),fecha_llamada:d(-2),estado:"Realizada",contratado:0,recaudado:0,revisar:false},
+      {id:"a7",nombre:"Jorge Demo",contacto:"@jorge",canal:"Instagram",origen:"Inbound",fuente:null,lead_magnet:null,fecha_agendada:d(-7),fecha_llamada:d(-6),estado:"Cerrada",plan:"3 meses",contratado:447,recaudado:447,fecha_cierre:d(-6),revisar:false});
+    demoDB.ftr_historico.push({id:"h2",nombre:"Otro lead",contacto:"+34 622",canal:"WhatsApp",fuente:"Inbound DM",etapa:"No cualifica",fecha:d(-30),observaciones:"Quería solo entrenamiento",recontactado:false});
     return start();
   }
   if(!sb){ $("#app").innerHTML='<div class="empty">No se ha podido cargar Supabase. Revisa la conexión.</div>'; return; }
