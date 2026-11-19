@@ -506,12 +506,23 @@ function modalNoCerrar(c){
 }
 
 /* ---------- LLAMADAS ---------- */
+// Qué fecha manda al filtrar por mes, igual que en el Resumen:
+// cerradas / no cerradas → fecha de cierre · no show / realizadas / canceladas → día de la llamada
+// agendadas pendientes → día que agendó · todos los estados → cualquier movimiento ese mes
+function fechaFiltro(c, estado){
+  if(estado==="Cerrada"||estado==="No cerrada") return [c.fecha_cierre||c.fecha_llamada||c.fecha_agendada];
+  if(estado==="No show"||estado==="Realizada"||estado==="Cancelada") return [c.fecha_llamada||c.fecha_agendada];
+  if(estado==="Agendada") return [c.fecha_agendada];
+  return [c.fecha_agendada, c.fecha_llamada, c.fecha_cierre];
+}
+const enMesFiltro = (c, estado, mes) => fechaFiltro(c, estado).some(d=>mesDe(d)===mes);
+const NOTA_FECHA = {"Cerrada":"por fecha de cierre, igual que en el Resumen","No cerrada":"por fecha de cierre","No show":"por día de la llamada","Realizada":"por día de la llamada","Cancelada":"por día de la llamada","Agendada":"por día en que agendó","":"con algún movimiento ese mes (agendó, llamada o cierre)"};
 function renderLlamadas(){
   const f=S.filtro, q=f.q.toLowerCase();
   let list=S.llamadas.filter(c=>
     (!q || (c.nombre+" "+(c.contacto||"")+" "+(c.observaciones||"")).toLowerCase().includes(q)) &&
     (!f.estado || (f.estado==="__rev"?c.revisar:c.estado===f.estado)) &&
-    (!f.mes || mesDe(c.fecha_agendada)===f.mes));
+    (!f.mes || enMesFiltro(c, f.estado, f.mes)));
   list.sort((a,b)=>(b.fecha_agendada||"").localeCompare(a.fecha_agendada||""));
   $("#main").innerHTML=`
     <div class="row"><input class="grow" id="q" placeholder="Buscar nombre, @usuario, teléfono…" value="${esc(f.q)}" style="min-width:200px"></div>
@@ -519,7 +530,7 @@ function renderLlamadas(){
       <select id="fe"><option value="">Todos los estados</option>${ESTADOS.map(x=>`<option ${f.estado===x?"selected":""}>${x}</option>`).join("")}<option value="__rev" ${f.estado==="__rev"?"selected":""}>⚠️ A revisar</option></select>
       <select id="fm"><option value="">Todos los meses</option>${mesesDisponibles().map(x=>`<option value="${x}" ${f.mes===x?"selected":""}>${NOMBRE_MES(x)}</option>`).join("")}</select>
     </div>
-    <p class="muted">${list.length} llamadas</p>
+    <p class="muted">${list.length} llamadas${f.mes&&f.estado!=="__rev"?` · ${NOTA_FECHA[f.estado]||""}`:""}</p>
     <div id="lst">${list.map(c=>callCard(c, ["Agendada","Realizada"].includes(c.estado))).join("")||'<div class="empty">Sin resultados</div>'}</div>`;
   $("#q").oninput=e=>{ S.filtro.q=e.target.value; const pos=e.target.selectionStart; renderLlamadas(); const i=$("#q"); i.focus(); i.setSelectionRange(pos,pos); };
   $("#fe").onchange=e=>{S.filtro.estado=e.target.value; renderLlamadas();};
